@@ -2,8 +2,8 @@
 """Write a seeded synthetic dataset for the pipeline's tests from a YAML spec.
 
 The spec names samples and, for each, the read sources mixed into it. A source is
-a VPD Assembly from the committed subset, or the synthetic "host" or "background"
-genome. Outputs, under --out-dir:
+a VPD Assembly from the committed subset, or the synthetic "host", "background" or
+"low_complexity" (dinucleotide repeat) genome. Outputs, under --out-dir:
 
     samplesheet.csv                      NVD-format samplesheet, one row per sample
     reads/<sample_id>_R1/_R2.fastq.gz    paired reads (gzip written with mtime 0)
@@ -30,6 +30,10 @@ DEFAULT_MEAN_FRAGMENT_LENGTH = 300
 FRAGMENT_LENGTH_SPREAD = 50
 HIGH_QUALITY_CHARACTER = "I"  # Phred 40
 LOW_QUALITY_CHARACTER = "#"  # Phred 2, so a quality filter removes the read
+# Illumina TruSeq adapters: what a read runs into when its insert is shorter than the read.
+TRUSEQ_ADAPTER_READ1 = "AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC"
+TRUSEQ_ADAPTER_READ2 = "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+SHORTEST_ADAPTER_INSERT = 30
 NVD_SAMPLESHEET_COLUMNS = ["sample_id", "srr", "platform", "fastq1", "fastq2", "fastq1_glob", "fastq2_glob"]
 
 
@@ -56,6 +60,17 @@ def load_vpd_assembly_records(vpd_fasta: Path, vpd_metadata: Path) -> dict[str, 
     return records_by_assembly
 
 
+def read_through_adapter(insert: str, adapter: str, read_length: int) -> str:
+    """A read longer than its insert reads the insert, then the adapter, then a poly-A tail."""
+    return (insert + adapter + "A" * read_length)[:read_length]
+
+
+def low_complexity_genome(random_generator: random.Random, length: int) -> str:
+    """A dinucleotide repeat such as ACACAC..., which an entropy filter should remove."""
+    first, second = random_generator.sample(NUCLEOTIDES, 2)
+    return ((first + second) * length)[:length]
+
+
 def mutate(sequence: str, divergence: float, random_generator: random.Random) -> str:
     """Substitute each base with probability `divergence` (always to a different base)."""
     if divergence == 0:
@@ -77,18 +92,31 @@ def simulate_source_pairs(source: dict, records: list[tuple[str, str]], read_nam
     record_lengths = [len(sequence) for _, sequence in records]
 
     pairs = []
-    for _ in range(total_pairs - duplicate_pairs):
+    adapter_pairs = round((total_pairs - duplicate_pairs) * source.get("adapter_fraction", 0.0))
+    divergence = source.get("divergence", 0.0)
+    for pair_index in range(total_pairs - duplicate_pairs):
         accession, sequence = random_generator.choices(records, weights=record_lengths)[0]
-        fragment_length = min(len(sequence), max(read_length, int(random_generator.gauss(
-            DEFAULT_MEAN_FRAGMENT_LENGTH, FRAGMENT_LENGTH_SPREAD))))
+        reads_into_adapter = pair_index < adapter_pairs
+        if reads_into_adapter:
+            fragment_length = random_generator.randrange(SHORTEST_ADAPTER_INSERT, read_length - SHORTEST_ADAPTER_INSERT)
+        else:
+            fragment_length = min(len(sequence), max(read_length, int(random_generator.gauss(
+                DEFAULT_MEAN_FRAGMENT_LENGTH, FRAGMENT_LENGTH_SPREAD))))
         fragment_start = random_generator.randrange(0, len(sequence) - fragment_length + 1)
         fragment = sequence[fragment_start: fragment_start + fragment_length]
+        if reads_into_adapter:
+            read1 = read_through_adapter(mutate(fragment, divergence, random_generator), TRUSEQ_ADAPTER_READ1, read_length)
+            read2 = read_through_adapter(mutate(reverse_complement(fragment), divergence, random_generator),
+                                         TRUSEQ_ADAPTER_READ2, read_length)
+        else:
+            read1 = mutate(fragment[:read_length], divergence, random_generator)
+            read2 = mutate(reverse_complement(fragment)[:read_length], divergence, random_generator)
         pairs.append({
             "source_record": accession,
             "read1_start": fragment_start,
             "fragment_length": fragment_length,
-            "read1": mutate(fragment[:read_length], source.get("divergence", 0.0), random_generator),
-            "read2": mutate(reverse_complement(fragment)[:read_length], source.get("divergence", 0.0), random_generator),
+            "read1": read1,
+            "read2": read2,
             "quality": quality_character * read_length,
             "is_duplicate": False,
         })
@@ -117,6 +145,7 @@ def make_test_data(spec_path: Path, out_dir: Path) -> None:
 
     genomes = load_vpd_assembly_records(Path(spec["vpd_fasta"]), Path(spec["vpd_metadata"]))
     genomes["host"] = [("synthetic_host", random_genome(random_generator, spec["host_genome_length"]))]
+    genomes["low_complexity"] = [("synthetic_low_complexity", low_complexity_genome(random_generator, 5_000))]
     genomes["background"] = [("synthetic_background", random_genome(random_generator, spec["background_genome_length"]))]
     (out_dir / "references" / "host.fna").write_text(f">synthetic_host\n{genomes['host'][0][1]}\n")
 

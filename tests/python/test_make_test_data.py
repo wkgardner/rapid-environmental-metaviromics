@@ -144,3 +144,32 @@ def test_host_genome_is_written_for_building_a_depletion_index(tmp_path):
     host_fasta = (out_dir / "references" / "host.fna").read_text().splitlines()
     assert host_fasta[0] == ">synthetic_host"
     assert len("".join(host_fasta[1:])) == 20_000
+
+
+TRUSEQ_ADAPTER_READ1 = "AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC"
+
+
+def test_adapter_fraction_gives_short_inserts_that_read_into_the_adapter(tmp_path):
+    samples = [{"sample_id": "adapters", "sources": [
+        {"genome": "acc:ON897592.1", "read_pairs": 40, "adapter_fraction": 0.5},
+    ]}]
+    out_dir = tmp_path / "out"
+    make_test_data(write_spec(tmp_path, samples), out_dir)
+
+    truth = pl.read_csv(out_dir / "truth" / "adapters.reads.tsv", separator="\t")
+    read1 = {name.split("/")[0]: sequence for name, sequence, _ in read_fastq_records(out_dir / "reads" / "adapters_R1.fastq.gz")}
+    short_inserts = truth.filter(pl.col("fragment_length") < 150)
+    assert short_inserts.height == 20
+    for row in short_inserts.iter_rows(named=True):
+        sequence = read1[row["read_name"]]
+        assert len(sequence) == 150
+        assert sequence[row["fragment_length"]:].startswith(TRUSEQ_ADAPTER_READ1[:20])
+
+
+def test_low_complexity_source_writes_dinucleotide_repeats(tmp_path):
+    samples = [{"sample_id": "repeats", "sources": [{"genome": "low_complexity", "read_pairs": 10}]}]
+    out_dir = tmp_path / "out"
+    make_test_data(write_spec(tmp_path, samples), out_dir)
+
+    for _, sequence, _ in read_fastq_records(out_dir / "reads" / "repeats_R1.fastq.gz"):
+        assert len(set(sequence)) <= 2
