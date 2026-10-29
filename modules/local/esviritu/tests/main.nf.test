@@ -1,0 +1,130 @@
+nextflow_process {
+
+    name "Test ESVIRITU"
+    script "../main.nf"
+    process "ESVIRITU"
+
+    test("both_callers: status ok and every sampled genome is called") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'both_callers', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.status[0][1] == 'ok'
+            def assemblies = path(process.out.tables[0][1]).readLines().drop(1).collect { it.split('\t')[2] } as Set
+            assert assemblies == ['GCF_000859645.1', 'GCF_001461485.1', 'acc:ON897592.1',
+                                  'set:43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA/S2-2__Sadwavirus_alphananas'] as Set
+        }
+    }
+
+    test("mapping_only: the diverged norovirus maps with consensus identity below the species threshold") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'mapping_only', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/mapping_only_R1.fastq.gz"), file("\${reads}/mapping_only_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.status[0][1] == 'ok'
+            // EsViritu relabels a call to genus level only in tax_profile.tsv; assembly_summary keeps
+            // the species, so the table builder applies EsViritu's rule. Here the input to that rule:
+            // consensus_ref_identity (column 17) is below the 0.90 species threshold.
+            def rows = path(process.out.tables[0][1]).readLines().drop(1)*.split('\t')
+            assert rows.size() == 1
+            assert rows[0][2] == 'GCF_001595675.1'
+            assert (rows[0][16] as double) < 0.90
+        }
+    }
+
+    test("kmer_only: 80 bp reads align nowhere, so no_detections") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'kmer_only', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/kmer_only_R1.fastq.gz"), file("\${reads}/kmer_only_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.status[0][1] == 'no_detections'
+            assert process.out.tables.size() == 0
+        }
+    }
+
+    test("a broken database makes EsViritu exit 0 with no tables, reported as failed") {
+        setup {
+            new File("${launchDir}/.nf-test/inputs/empty_esviritu_db").mkdirs()
+        }
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'neither', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                    file("\${reads}/neither_R1.fastq.gz"),
+                ])
+                input[1] = file("${launchDir}/.nf-test/inputs/empty_esviritu_db")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.status[0][1] == 'failed'
+            assert process.out.tables.size() == 0
+        }
+    }
+}
