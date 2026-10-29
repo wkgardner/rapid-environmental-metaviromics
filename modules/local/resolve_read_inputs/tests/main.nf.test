@@ -1,0 +1,33 @@
+nextflow_process {
+
+    name "Test RESOLVE_READ_INPUTS"
+    script "../main.nf"
+    process "RESOLVE_READ_INPUTS"
+
+    test("an SRA row and a local pair resolve to one record each") {
+        setup {
+            def inputs = new File("${launchDir}/.nf-test/inputs/resolve_read_inputs")
+            inputs.mkdirs()
+            new File(inputs, "local_R1.fastq.gz").text = ''
+            new File(inputs, "local_R2.fastq.gz").text = ''
+            new File(inputs, "samplesheet.csv").text = """\
+sample_id,srr,platform,fastq1,fastq2,fastq1_glob,fastq2_glob
+sra_sample,SRR33296246,illumina,,,,
+local_sample,,illumina,${inputs}/local_R1.fastq.gz,${inputs}/local_R2.fastq.gz,,
+"""
+        }
+        when {
+            process {
+                """
+                input[0] = file("${launchDir}/.nf-test/inputs/resolve_read_inputs/samplesheet.csv")
+                """
+            }
+        }
+        then {
+            assert process.success
+            def records = path(process.out.jsonl[0]).readLines().collect { new groovy.json.JsonSlurper().parseText(it) }
+            assert records*.sample_id == ['sra_sample', 'local_sample']
+            assert records*.source == ['sra', 'paired_files']
+        }
+    }
+}
