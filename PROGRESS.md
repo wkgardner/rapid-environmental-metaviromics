@@ -41,6 +41,18 @@ See `PLAN.md` for the build order. Update after every step.
   call-table builder applies EsViritu's rule. MultiQC 1.35 needs a search-pattern tweak for
   BBTools 39.x BBDuk logs. Spec Doc updated to rev 378 with these.
 
+## Overnight plan (2026-10-29, user away)
+
+1. Real run on two pilot samples: `runs/rww_20261029_real/` (params.yaml, run.out, trace.txt).
+   First pilot sample done; the second's EsViritu running. Fix anything that breaks, then report timings/calls.
+2. batch2: rsync of the selected sites into `real-samples/batch2-subset/` (8 lanes/sample, ~1 TB+).
+   When no rsync into it remains: `bin/write_samplesheet_from_fastq_dir.py --fastq-dir
+   real-samples/batch2-subset --out real-samples/batch2-subset/samplesheet.csv`, then launch
+   `runs/rww_<date>_batch2/` with the same references and `-c conf/shared_host.config`
+   (16 CPUs / 160 GB cap for the shared AP).
+3. Tower: the user's `tower` block is in nextflow.config, uncommitted (do not commit it until the
+   user confirms the token is not in the file).
+
 ## Next action
 
 Read the smoke-run timings; run on real samples once the Deacon union index is ready.
