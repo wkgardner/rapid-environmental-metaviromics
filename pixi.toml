@@ -25,7 +25,7 @@ pytest = "*"
 
 [tasks]
 # Seam A: bin/ scripts.
-test-python = "pytest tests/python -q"
+test-python = "pytest tests/python -q -p no:cacheprovider --basetemp=.scratch/pytest"
 # Seams B and C: Nextflow processes and the whole pipeline.
 test-nf = "nf-test test --verbose"
 make-test-data = "python bin/make_test_data.py --spec tests/data/test_data_spec.yaml --out-dir tests/data/generated"
