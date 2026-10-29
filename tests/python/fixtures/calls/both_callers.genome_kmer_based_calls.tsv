@@ -1,0 +1,6 @@
+run_id	sample_id	vpd_assembly	vpd_species	vpd_subspecies	vpd_genus	vpd_family	vpd_taxids	taxonomic_abundance	sequence_abundance	adjusted_ani	naive_ani	effective_coverage	containment_matching_kmers	containment_total_kmers	kmers_reassigned
+rww_20261029_test	both_callers	GCF_000859645.1	Tobamovirus capsici	Pepper mild mottle virus	Tobamovirus	Virgaviridae	12239	35.4178	22.7888	100.0	100.0	15.0	81	81	0
+rww_20261029_test	both_callers	PSVA/S2-2__Sadwavirus_alphananas	Sadwavirus alphananas	Sadwavirus alphananas	Sadwavirus	Secoviridae	2726258	18.6871	16.6616	99.94	99.94	7.914	105	107	0
+rww_20261029_test	both_callers	GCF_001461485.1	Tobamovirus fructirugosum	Tomato brown rugose fruit virus	Tobamovirus	Virgaviridae	1761477	18.394	11.9022	100.0	100.0	7.79	81	81	0
+rww_20261029_test	both_callers	set:43d19931109e46219fb3876e13775cee063e1ed0	Rotavirus alphagastroenteritidis	A1;C1;E1;G11;H1;I12;M1;N1;P[25];R1;T1	Rotavirus	Sedoreoviridae	28875	17.3025	18.1608	99.9	99.9	7.328	122	126	0
+rww_20261029_test	both_callers	acc:ON897592.1	Betacoronavirus pandemicum	SARS-CoV-2_Omicron	Betacoronavirus	Coronaviridae	2697049	10.1986	30.4866	99.94	99.94	4.319	379	386	0
