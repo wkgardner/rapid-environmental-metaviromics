@@ -10,6 +10,7 @@ process CLUMPIFY_DEDUP {
     output:
     tuple val(meta), path("${meta.id}.deduplicated.fastq.gz"), emit: reads
     tuple val(meta), path("${meta.id}.dedup.clumpify.log"), emit: log
+    path 'versions.yml', topic: versions
 
     script:
     def interleaved_argument = meta.read_mode == 'paired' ? 'int=t' : ''
@@ -28,5 +29,9 @@ process CLUMPIFY_DEDUP {
         threads=${task.cpus} \\
         -eoom \\
         2> >(tee ${meta.id}.dedup.clumpify.log >&2)
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        bbmap: "\$(bbversion.sh 2>/dev/null | tail -1)"
+    END_VERSIONS
     """
 }

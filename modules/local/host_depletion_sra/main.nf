@@ -13,6 +13,7 @@ process HOST_DEPLETION_SRA {
     output:
     tuple val(meta), path("${meta.id}.host_depleted.fastq.gz"), env('READS_POST_DEPLETION'), env('READ_MODE'), emit: reads
     tuple val(meta), path("${meta.id}.host_depletion.deacon.json"), emit: summary
+    path 'versions.yml', topic: versions
 
     script:
     def summary = "${meta.id}.host_depletion.deacon.json"
@@ -43,5 +44,9 @@ process HOST_DEPLETION_SRA {
         ${depletion_index} -
 
     READS_POST_DEPLETION=\$(jq -er '.seqs_out' ${summary})
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        deacon: "\$(deacon --version | sed 's/^deacon //')"
+    END_VERSIONS
     """
 }

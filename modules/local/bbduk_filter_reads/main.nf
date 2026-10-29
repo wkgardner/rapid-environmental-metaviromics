@@ -10,6 +10,7 @@ process BBDUK_FILTER_READS {
     output:
     tuple val(meta), path("${meta.id}.read_filtered.fastq.gz"), env('READS_POST_QC'), emit: reads
     tuple val(meta), path("${meta.id}.read_filtering.bbduk.log"), emit: log
+    path 'versions.yml', topic: versions
 
     script:
     def min_quality = meta.platform == 'illumina' ? params.min_read_quality_illumina : params.min_read_quality_nanopore
@@ -32,5 +33,9 @@ process BBDUK_FILTER_READS {
         2> >(tee ${meta.id}.read_filtering.bbduk.log >&2)
 
     READS_POST_QC=\$(( \$(zcat ${meta.id}.read_filtered.fastq.gz | wc -l) / 4 ))
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        bbmap: "\$(bbversion.sh 2>/dev/null | tail -1)"
+    END_VERSIONS
     """
 }

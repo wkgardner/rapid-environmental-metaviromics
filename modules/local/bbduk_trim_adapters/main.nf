@@ -10,6 +10,7 @@ process BBDUK_TRIM_ADAPTERS {
     output:
     tuple val(meta), path("${meta.id}.adapter_trimmed.fastq.gz"), emit: reads
     tuple val(meta), path("${meta.id}.adapter_trimming.bbduk.log"), emit: log
+    path 'versions.yml', topic: versions
 
     script:
     def pair_arguments = meta.read_mode == 'paired' ? 'int=t tpe tbo removeifeitherbad=t' : 'int=f'
@@ -27,5 +28,9 @@ process BBDUK_TRIM_ADAPTERS {
         threads=${task.cpus} \\
         -eoom \\
         2> >(tee ${meta.id}.adapter_trimming.bbduk.log >&2)
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        bbmap: "\$(bbversion.sh 2>/dev/null | tail -1)"
+    END_VERSIONS
     """
 }

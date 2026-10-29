@@ -12,6 +12,7 @@ process HOST_DEPLETION {
     output:
     tuple val(meta), path("${meta.id}.host_depleted.fastq.gz"), env('READS_POST_DEPLETION'), emit: reads
     tuple val(meta), path("${meta.id}.host_depletion.deacon.json"), emit: summary
+    path 'versions.yml', topic: versions
 
     script:
     def files = read_files instanceof List ? read_files : [read_files]
@@ -23,6 +24,11 @@ process HOST_DEPLETION {
     def thresholds = "--abs-threshold ${params.host_depletion_abs_threshold} --rel-threshold ${params.host_depletion_rel_threshold}"
     def complexity_arg = params.host_depletion_complexity_threshold != null
         ? "--complexity-threshold ${params.host_depletion_complexity_threshold}" : ''
+    def write_versions = """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            deacon: "\$(deacon --version | sed 's/^deacon //')"
+        END_VERSIONS""".stripIndent()
     def count_reads = "READS_POST_DEPLETION=\$(jq -er '.seqs_out' ${summary})"
     if (files.size() == 1 || (meta.read_mode == 'paired' && r1_files.size() == 1))
         """
@@ -30,6 +36,7 @@ process HOST_DEPLETION {
             --threads ${task.cpus} --summary ${summary} --output ${output} \\
             ${depletion_index} ${files.join(' ')}
         ${count_reads}
+        ${write_versions}
         """
     else if (meta.read_mode == 'single')
         """
@@ -38,6 +45,7 @@ process HOST_DEPLETION {
             --reads-list reads.list ${thresholds} \\
             --threads ${task.cpus} --summary ${summary} --output ${output}
         ${count_reads}
+        ${write_versions}
         """
     else
         """
@@ -47,5 +55,6 @@ process HOST_DEPLETION {
             --r1-list r1.list --r2-list r2.list ${thresholds} \\
             --threads ${task.cpus} --summary ${summary} --output ${output}
         ${count_reads}
+        ${write_versions}
         """
 }
