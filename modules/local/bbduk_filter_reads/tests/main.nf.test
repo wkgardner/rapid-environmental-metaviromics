@@ -1,0 +1,78 @@
+nextflow_process {
+
+    name "Test BBDUK_FILTER_READS"
+    script "../main.nf"
+    process "BBDUK_FILTER_READS"
+
+
+    test("low-quality pairs are dropped") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'both_callers', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                """
+            }
+        }
+        then {
+            assert process.success
+            def fastq_sequences = { fastq -> path(fastq).linesGzip.collate(4)*.get(1) }
+            // All 100 background pairs (written at Phred 2) must go. Untrimmed adapter read-through
+            // pairs end in a poly-A tail, so the entropy filter may also drop some of those, and
+            // nothing else. Which pairs were short inserts comes from the generator's truth table.
+            def truth = path("${projectDir}/tests/data/generated/truth/both_callers.reads.tsv").readLines().drop(1).collect { it.split('\t') as List }
+            def short_insert_pairs = truth.findAll { (it[3] as int) < 150 }*.get(0) as Set
+            def kept_pairs = path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }*.replaceAll(/^@|\/[12]$/, '') as Set
+            def removed_pairs = (truth*.get(0) as Set) - kept_pairs
+            def removed_background = removed_pairs.findAll { it.contains('_background_') }
+            assert removed_background.size() == 100
+            assert (removed_pairs - removed_background).every { it in short_insert_pairs || it.contains('_host_') }
+            assert process.out.reads[0][2] == "${kept_pairs.size() * 2}"
+        }
+    }
+
+    test("low-complexity pairs are dropped") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'neither', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/neither_R1.fastq.gz"), file("\${reads}/neither_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                """
+            }
+        }
+        then {
+            assert process.success
+            def fastq_sequences = { fastq -> path(fastq).linesGzip.collate(4)*.get(1) }
+            // neither keeps 300 background + 100 repeat pairs after depletion; the repeats go.
+            assert process.out.reads[0][2] == '600'
+        }
+    }
+}
