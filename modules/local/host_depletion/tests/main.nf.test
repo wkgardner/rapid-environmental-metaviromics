@@ -1,0 +1,52 @@
+nextflow_process {
+
+    name "Test HOST_DEPLETION"
+    script "../main.nf"
+    process "HOST_DEPLETION"
+
+    test("paired reads: host pairs removed, viral pairs kept and interleaved") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'kmer_only', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                    [file("\${reads}/kmer_only_R1.fastq.gz"), file("\${reads}/kmer_only_R2.fastq.gz")],
+                ])
+                input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                """
+            }
+        }
+        then {
+            assert process.success
+            // kmer_only holds 300 enterovirus pairs and 100 host pairs (tests/data/test_data_spec.yaml).
+            def summary = new groovy.json.JsonSlurper().parse(path(process.out.summary[0][1]).toFile())
+            assert summary.seqs_in == 800
+            assert summary.seqs_out == 600
+            assert process.out.reads[0][2] == '600'
+            def read_names = path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }
+            assert read_names.size() == 600
+            assert read_names.every { it.contains('set_MF678311') }
+            assert read_names[0].endsWith('/1') && read_names[1].endsWith('/2')
+        }
+    }
+
+    test("all-host sample leaves zero reads") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'host_only', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                    [file("\${reads}/host_only_R1.fastq.gz"), file("\${reads}/host_only_R2.fastq.gz")],
+                ])
+                input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][2] == '0'
+        }
+    }
+}
