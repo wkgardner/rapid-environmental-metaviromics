@@ -1,0 +1,45 @@
+# Synthetic dataset for the pipeline's nf-tests (seams B and C).
+# Regenerate with: pixi run make-test-data   (writes tests/data/generated/, committed)
+# Every sample carries host reads so depletion has something to remove.
+seed: 20261029
+vpd_fasta: tests/data/vpd_subset/virus_pathogen_database.fna
+vpd_metadata: tests/data/vpd_subset/virus_pathogen_database.all_metadata.tsv
+host_genome_length: 30000
+background_genome_length: 20000
+
+samples:
+  # Found by both callers: two tobamoviruses (genus normalisation), SARS-CoV-2 with
+  # duplicates (Clumpify), segmented rotavirus, and the Assembly whose name has a "/".
+  - sample_id: both_callers
+    sources:
+      - {genome: GCF_000859645.1, read_pairs: 400}
+      - {genome: GCF_001461485.1, read_pairs: 200}
+      - {genome: "acc:ON897592.1", read_pairs: 600, duplicate_fraction: 0.1}
+      - {genome: "set:43d19931109e46219fb3876e13775cee063e1ed0", read_pairs: 300}
+      - {genome: "PSVA/S2-2__Sadwavirus_alphananas", read_pairs: 300}
+      - {genome: host, read_pairs: 300}
+      - {genome: background, read_pairs: 100, low_quality: true}
+
+  # Genome k-mer-based only: reads shorter than EsViritu's 100 bp minimum alignment.
+  - sample_id: kmer_only
+    sources:
+      - {genome: "set:MF678311", read_pairs: 300, read_length: 80}
+      - {genome: host, read_pairs: 100}
+
+  # Genome mapping-based only: 12 % diverged reads fall below sylph's 90 ANI floor
+  # but still map, so EsViritu makes a genus-level call.
+  - sample_id: mapping_only
+    sources:
+      - {genome: GCF_001595675.1, read_pairs: 600, divergence: 0.12}
+      - {genome: host, read_pairs: 100}
+
+  # Neither caller: only background and host.
+  - sample_id: neither
+    sources:
+      - {genome: background, read_pairs: 300}
+      - {genome: host, read_pairs: 200}
+
+  # Nothing survives host depletion: status no_reads_left, callers skipped.
+  - sample_id: host_only
+    sources:
+      - {genome: host, read_pairs: 300}

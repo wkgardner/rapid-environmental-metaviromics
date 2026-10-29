@@ -10,7 +10,7 @@ end-to-end test, so tests need no network and no full VPD.
 | `GCF_000859645.1` | Tobamovirus capsici (PMMoV) | normalisation genus, both callers |
 | `GCF_001461485.1` | Tobamovirus fructirugosum (ToBRFV) | second Tobamovirus, so the genus sum is tested |
 | `acc:ON897592.1` | Betacoronavirus pandemicum (SARS-CoV-2) | ordinary both-callers call |
-| `set:43d19931109e46…` | Rotavirus alphagastroenteritidis | 11 segments count as one genome |
-| `PSVA/S2-2__Sadwavirus_alphananas…` | Sadwavirus alphananas | Assembly name contains `/` (sanitised genome file) |
+| `set:43d19931109e46219fb3876e13775cee063e1ed0` | Rotavirus alphagastroenteritidis | 11 segments count as one genome |
+| `PSVA/S2-2__Sadwavirus_alphananas` | Sadwavirus alphananas | Assembly name contains `/` (sanitised genome file) |
 | `set:MF678311` | Enterovirus B | k-mer-only case (short reads EsViritu drops) |
 | `GCF_001595675.1` | Norovirus norwalkense | mapping-only case (diverged reads, genus-level call) |
