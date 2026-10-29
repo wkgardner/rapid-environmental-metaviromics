@@ -47,7 +47,7 @@ def main() -> None:
 
     genome_paths = []
     for genome_file, fasta_records in sorted(fragments_by_genome_file.items()):
-        genome_path = (arguments.out_dir / genome_file).resolve()
+        genome_path = arguments.out_dir / genome_file
         genome_path.write_text("".join(fasta_records))
         genome_paths.append(str(genome_path))
     arguments.genome_list.write_text("\n".join(genome_paths) + "\n")

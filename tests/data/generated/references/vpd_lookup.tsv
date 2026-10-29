@@ -1,0 +1,8 @@
+vpd_assembly	genome_file	vpd_species	vpd_subspecies	vpd_genus	vpd_family	vpd_taxids
+GCF_000859645.1	GCF_000859645.1.fna	Tobamovirus capsici	Pepper mild mottle virus	Tobamovirus	Virgaviridae	12239
+GCF_001461485.1	GCF_001461485.1.fna	Tobamovirus fructirugosum	Tomato brown rugose fruit virus	Tobamovirus	Virgaviridae	1761477
+GCF_001595675.1	GCF_001595675.1.fna	Norovirus norwalkense	norovirus GIII	Norovirus	Caliciviridae	340017
+PSVA/S2-2__Sadwavirus_alphananas	PSVA_S2-2__Sadwavirus_alphananas.fna	Sadwavirus alphananas	Sadwavirus alphananas	Sadwavirus	Secoviridae	2726258
+acc:ON897592.1	acc_ON897592.1.fna	Betacoronavirus pandemicum	SARS-CoV-2_Omicron	Betacoronavirus	Coronaviridae	2697049
+set:43d19931109e46219fb3876e13775cee063e1ed0	set_43d19931109e46219fb3876e13775cee063e1ed0.fna	Rotavirus alphagastroenteritidis	A1;C1;E1;G11;H1;I12;M1;N1;P[25];R1;T1	Rotavirus	Sedoreoviridae	28875
+set:MF678311	set_MF678311.fna	Enterovirus B	Coxsackievirus B3	Enterovirus	Picornaviridae	12072
