@@ -1,0 +1,38 @@
+nextflow_process {
+
+    name "Test CLUMPIFY_DEDUP"
+    script "../main.nf"
+    process "CLUMPIFY_DEDUP"
+
+
+    test("exact duplicate pairs are removed") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'both_callers', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                """
+            }
+        }
+        then {
+            assert process.success
+            def fastq_sequences = { fastq -> path(fastq).linesGzip.collate(4)*.get(1) }
+            // 10 % of 600 SARS-CoV-2 pairs are exact copies: 60 pairs, 120 reads.
+            assert fastq_sequences(process.out.reads[0][1]).size() == 3800 - 120
+        }
+    }
+}
