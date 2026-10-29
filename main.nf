@@ -25,6 +25,7 @@ workflow {
     genome_mapping_based_calls = RAPID_WW.out.genome_mapping_based_calls
     esviritu_reports = RAPID_WW.out.esviritu_reports
     sample_status = RAPID_WW.out.sample_status
+    qc_report = RAPID_WW.out.qc_report
     run_metadata = WRITE_RUN_METADATA.out.metadata
 }
 
@@ -35,6 +36,7 @@ output {
     genome_kmer_based_calls { path '02_genome_kmer_based_calling/genome_kmer_based_calls' }
     genome_mapping_based_calls { path '03_genome_mapping_based_calling/genome_mapping_based_calls' }
     esviritu_reports { path '03_genome_mapping_based_calling/esviritu_reports' }
+    qc_report { path '04_qc_report' }
     sample_status { path '05_run_summary/sample_status' }
     run_metadata { path '05_run_summary' }
 }

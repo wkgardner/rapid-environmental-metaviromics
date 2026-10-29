@@ -1,0 +1,14 @@
+# One MultiQC report per run covering all read QC.
+title: "Rapid wastewater metagenomics: read QC"
+# BBTools 39.x logs "Executing bbduk.BBDukS" on line 3 (after the java command line), where
+# MultiQC 1.35 looks for "Executing jgi.BBDuk" in the first 2 lines.
+sp:
+  bbduk:
+    contents: "Executing bbduk.BBDuk"
+    num_lines: 5
+# Keep each log's step in its sample name (both_callers.read_filtering), so the trimming and
+# filtering logs of one sample do not overwrite each other.
+fn_clean_exts:
+  - ".bbduk.log"
+  - ".clumpify.log"
+  - ".deacon.json"

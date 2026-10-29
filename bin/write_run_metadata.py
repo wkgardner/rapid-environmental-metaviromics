@@ -26,9 +26,10 @@ STEP_BY_PROCESS = {
     "SYLPH_SKETCH_READS": "genome_kmer_based_calling",
     "SYLPH_PROFILE": "genome_kmer_based_calling",
     "ESVIRITU": "genome_mapping_based_calling",
+    "MULTIQC": "qc_report",
 }
 STEPS_IN_ORDER = ["host_depletion", "adapter_trimming", "dedup", "read_filtering",
-                  "genome_kmer_based_calling", "genome_mapping_based_calling"]
+                  "genome_kmer_based_calling", "genome_mapping_based_calling", "qc_report"]
 
 
 def step_is_switched_off(step: str, params: dict) -> bool:

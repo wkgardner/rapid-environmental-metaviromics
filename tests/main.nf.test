@@ -76,13 +76,16 @@ nextflow_pipeline {
             def host_only_counts = read_tsv(table_file('01_preprocessing', 'host_only', 'preprocessing_read_counts'))[0]
             assert host_only_counts.reads_post_depletion == '0' && host_only_counts.qc_duplicate_reads_removed == ''
 
+            // One MultiQC report per run.
+            assert path("${outputDir}/04_qc_report/rww_20261029_e2e.multiqc_report.html").exists()
+
             // run_metadata.yaml names the tool behind every step.
             def metadata = new org.yaml.snakeyaml.Yaml().load(path("${outputDir}/05_run_summary/rww_20261029_e2e.run_metadata.yaml").text)
             assert metadata.run_id == 'rww_20261029_e2e'
             assert metadata.references.vpd_version == '3.2.4-subset'
             assert metadata.steps.collectEntries { step, details -> [step, details.tool] } == [
                 host_depletion: 'deacon', adapter_trimming: 'bbmap', dedup: 'bbmap', read_filtering: 'bbmap',
-                genome_kmer_based_calling: 'sylph', genome_mapping_based_calling: 'esviritu',
+                genome_kmer_based_calling: 'sylph', genome_mapping_based_calling: 'esviritu', qc_report: 'multiqc',
             ]
         }
     }

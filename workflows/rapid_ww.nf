@@ -14,6 +14,7 @@ include { BUILD_GENOME_KMER_BASED_CALLS    } from '../modules/local/build_genome
 include { ESVIRITU                         } from '../modules/local/esviritu'
 include { BUILD_GENOME_MAPPING_BASED_CALLS } from '../modules/local/build_genome_mapping_based_calls'
 include { WRITE_SAMPLE_STATUS              } from '../modules/local/write_sample_status'
+include { MULTIQC                          } from '../modules/local/multiqc'
 
 // How many read-QC logs a sample with reads left will produce, so its read-count row can be
 // built as soon as its own logs exist instead of waiting for every sample.
@@ -142,6 +143,14 @@ workflow RAPID_WW {
             : ch_mapping_status.map { meta, status -> tuple(meta, 'genome_mapping_based_calling', [status: status], []) })
     WRITE_SAMPLE_STATUS(ch_status_rows, run_id)
 
+    // ---- One MultiQC report per run for all read QC ----
+    MULTIQC(
+        ch_step_logs.map { sample_id, log_file -> log_file }.collect(),
+        BUILD_PREPROCESSING_READ_COUNTS.out.table.map { meta, table -> table }.collect(),
+        file("${projectDir}/assets/multiqc_config.yaml"),
+        run_id,
+    )
+
     emit:
     preprocessing_read_counts = BUILD_PREPROCESSING_READ_COUNTS.out.table
     preprocessing_logs = ch_step_logs.map { sample_id, log_file -> log_file }
@@ -149,4 +158,5 @@ workflow RAPID_WW {
     genome_mapping_based_calls = ch_mapping_calls
     esviritu_reports = params.skip_genome_mapping_based_calling ? channel.empty() : ESVIRITU.out.reports
     sample_status = WRITE_SAMPLE_STATUS.out.table
+    qc_report = MULTIQC.out.report.mix(MULTIQC.out.data)
 }
