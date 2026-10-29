@@ -1,0 +1,24 @@
+# Params for a local run. Copy, fill in the paths, then:
+#   pixi run nextflow run . -params-file my_run.yaml -work-dir /home/<you>/<project>/work
+# Every other setting has the spec default from nextflow.config (ADR 0001); override it here
+# only for this run, and the effective values land in 05_run_summary/<run_id>.run_metadata.yaml.
+# References stay local under project home (CHTC /staging is unavailable).
+
+input: /home/<you>/<project>/samplesheet.csv      # NVD format: sample_id,srr,platform,fastq1,fastq2,fastq1_glob,fastq2_glob
+outdir: /home/<you>/<project>/results
+# run_id: rww_20261030_week44                     # default rww_<YYYYMMDD>_<Nextflow runName>
+
+# Host depletion: the unioned panhuman-1 + SILVA SSU/LSU Deacon index (k31/w15)
+host_depletion_index: /home/<you>/refs/<union>.k31w15.idx
+
+# Genome k-mer-based calling: built from the vector-masked VPD with
+#   bin/build_vpd_lookup.py, bin/write_sylph_genome_fastas.py, sylph sketch -k 31 -c 50
+sylph_database: /home/<you>/refs/vpd_3.2.4_vector_only/vpd_3.2.4_vector_only.k31c50.syldb
+vpd_lookup: /home/<you>/refs/vpd_3.2.4_vector_only/vpd_lookup.tsv
+
+# Genome mapping-based calling: directory with virus_pathogen_database.{fna,fna.fai,mmi,all_metadata.tsv}
+esviritu_database: /home/<you>/refs/esviritu_db_v3.2.4_vector_only
+
+# Recorded in run_metadata.yaml
+vpd_version: '3.2.4'
+vpd_mask_version: vector_only
