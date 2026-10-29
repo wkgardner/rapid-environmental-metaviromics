@@ -1,0 +1,28 @@
+nextflow_process {
+
+    name "Test HOST_DEPLETION_SRA"
+    script "../main.nf"
+    process "HOST_DEPLETION_SRA"
+    tag "network"
+
+    test("a paired SRA run streams through Deacon and comes out interleaved") {
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [id: 'sra_sample', platform: 'illumina', srr: 'SRR33296246'],
+                    file("${projectDir}/tests/data/generated/references/host.k31w15.idx"),
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            // SRR33296246 has 479,717 spots of 2 reads (sracha info); a synthetic host removes none.
+            def summary = new groovy.json.JsonSlurper().parse(path(process.out.summary[0][1]).toFile())
+            assert summary.seqs_in == 959434
+            assert process.out.reads[0][2] == '959434'
+            assert process.out.reads[0][3] == 'paired'
+        }
+    }
+}
