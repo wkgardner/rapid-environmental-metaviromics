@@ -20,7 +20,7 @@ nextflow_pipeline {
                 input = "${launchDir}/.nf-test/inputs/e2e_samplesheet.csv"
                 outdir = "${outputDir}"
                 run_id = 'rww_20261029_e2e'
-                host_depletion_index = "${references}/host.k31w15.idx"
+                reference_filter_index = "${references}/host.k31w15.idx"
                 sylph_database = "${references}/vpd.syldb"
                 vpd_lookup = "${references}/vpd_lookup.tsv"
                 esviritu_database = "${references}/esviritu_db"
@@ -67,14 +67,14 @@ nextflow_pipeline {
             assert norovirus*.vpd_assembly == ['GCF_001595675.1']
             assert norovirus[0].call_level == 'genus' && norovirus[0].vpd_species == '' && norovirus[0].vpd_genus == 'Norovirus'
 
-            // preprocessing_read_counts: depletion removes every host pair; QC removes the
+            // preprocessing_read_counts: the reference filter removes every host pair; QC removes the
             // 60 duplicate SARS-CoV-2 pairs and the 100 low-quality background pairs.
             def both_counts = read_tsv(table_file('01_preprocessing', 'both_callers', 'preprocessing_read_counts'))[0]
-            assert [both_counts.raw_reads, both_counts.host_reads_removed, both_counts.reads_post_depletion] == ['4400', '600', '3800']
+            assert [both_counts.raw_reads, both_counts.reads_removed_by_reference_filter, both_counts.reads_post_reference_filter] == ['4400', '600', '3800']
             assert both_counts.qc_duplicate_reads_removed == '120'
             assert (both_counts.qc_low_quality_reads_removed as int) >= 200
             def host_only_counts = read_tsv(table_file('01_preprocessing', 'host_only', 'preprocessing_read_counts'))[0]
-            assert host_only_counts.reads_post_depletion == '0' && host_only_counts.qc_duplicate_reads_removed == ''
+            assert host_only_counts.reads_post_reference_filter == '0' && host_only_counts.qc_duplicate_reads_removed == ''
 
             // One MultiQC report per run.
             assert path("${outputDir}/04_qc_report/rww_20261029_e2e.multiqc_report.html").exists()
@@ -84,7 +84,7 @@ nextflow_pipeline {
             assert metadata.run_id == 'rww_20261029_e2e'
             assert metadata.references.vpd_version == '3.2.4-subset'
             assert metadata.steps.collectEntries { step, details -> [step, details.tool] } == [
-                host_depletion: 'deacon', adapter_trimming: 'bbmap', dedup: 'bbmap', read_filtering: 'bbmap',
+                reference_filter: 'deacon', adapter_trimming: 'bbmap', dedup: 'bbmap', read_filtering: 'bbmap',
                 genome_kmer_based_calling: 'sylph', genome_mapping_based_calling: 'esviritu', qc_report: 'multiqc',
             ]
         }

@@ -7,8 +7,8 @@ nextflow_process {
 
     test("adapter read-through is trimmed and no read is lost") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -17,6 +17,7 @@ nextflow_process {
                         [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -24,7 +25,7 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                 """
             }
         }

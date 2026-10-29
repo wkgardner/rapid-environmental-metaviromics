@@ -8,8 +8,12 @@ input: /home/<you>/<project>/samplesheet.csv      # NVD format: sample_id,srr,pl
 outdir: /home/<you>/<project>/results
 # run_id: rww_20261030_week44                     # default rww_<YYYYMMDD>_<Nextflow runName>
 
-# Host depletion: the unioned panhuman-1 + SILVA SSU/LSU Deacon index (k31/w15)
-host_depletion_index: /home/<you>/refs/<union>.k31w15.idx
+# Reference filter (Deacon, k31/w15). Default: deplete against the unioned host index
+#   panhuman-1 + SILVA SSU 144 + LSU 138.2 + Rfam 15.1 rRNA. Set mode to extract (with e.g. the
+#   VPD index) to keep only matching reads instead.
+reference_filter_index: /home/<you>/refs/deacon-indexes/panhuman-1_silva144_ssu_silva138.2_lsu_rfam15.1_rrna.k31w15.idx
+reference_filter_mode: deplete
+reference_filter_index_description: panhuman-1 + SILVA SSU 144 + LSU 138.2 + Rfam 15.1 rRNA
 
 # Genome k-mer-based calling: built from the vector-masked VPD with
 #   bin/build_vpd_lookup.py, bin/write_sylph_genome_fastas.py, sylph sketch -k 31 -c 50

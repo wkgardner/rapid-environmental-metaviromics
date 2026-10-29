@@ -6,8 +6,8 @@ nextflow_process {
 
     test("both_callers: every sampled genome is called") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -16,6 +16,7 @@ nextflow_process {
                         [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -23,7 +24,7 @@ nextflow_process {
                 script "../../sylph_sketch_reads/main.nf"
                 process {
                     """
-                    input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                    input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                     """
                 }
             }
@@ -46,8 +47,8 @@ nextflow_process {
 
     test("kmer_only: the short-read enterovirus is called") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -56,6 +57,7 @@ nextflow_process {
                         [file("\${reads}/kmer_only_R1.fastq.gz"), file("\${reads}/kmer_only_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -63,7 +65,7 @@ nextflow_process {
                 script "../../sylph_sketch_reads/main.nf"
                 process {
                     """
-                    input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                    input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                     """
                 }
             }
@@ -86,8 +88,8 @@ nextflow_process {
 
     test("mapping_only: 14 % diverged norovirus is below the ANI floor") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -96,6 +98,7 @@ nextflow_process {
                         [file("\${reads}/mapping_only_R1.fastq.gz"), file("\${reads}/mapping_only_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -103,7 +106,7 @@ nextflow_process {
                 script "../../sylph_sketch_reads/main.nf"
                 process {
                     """
-                    input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                    input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                     """
                 }
             }
@@ -126,8 +129,8 @@ nextflow_process {
 
     test("neither: background and repeats give no call") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -136,6 +139,7 @@ nextflow_process {
                         [file("\${reads}/neither_R1.fastq.gz"), file("\${reads}/neither_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -143,7 +147,7 @@ nextflow_process {
                 script "../../sylph_sketch_reads/main.nf"
                 process {
                     """
-                    input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                    input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                     """
                 }
             }

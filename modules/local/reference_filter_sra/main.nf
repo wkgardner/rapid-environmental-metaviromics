@@ -1,6 +1,7 @@
-process HOST_DEPLETION_SRA {
+process REFERENCE_FILTER_SRA {
     // NVD v3.5's SRA path: stream the run from `sracha get` straight into the same Deacon
-    // --deplete pass, so the decoded FASTQ never lands on disk. Paired runs come out
+    // reference-filter pass (deplete or extract, as REFERENCE_FILTER), so the decoded FASTQ
+    // never lands on disk. Paired runs come out
     // interleaved, like local paired input. The run's layout is read by column name from
     // `sracha info` (sracha 0.8 added columns that NVD's fixed 8-column check rejects).
     tag "${meta.id}, ${meta.srr}"
@@ -8,17 +9,22 @@ process HOST_DEPLETION_SRA {
     maxForks params.max_concurrent_downloads
 
     input:
-    tuple val(meta), path(depletion_index)
+    tuple val(meta), path(filter_index)
+    val filter_mode
 
     output:
-    tuple val(meta), path("${meta.id}.host_depleted.fastq.gz"), env('READS_POST_DEPLETION'), env('READ_MODE'), emit: reads
-    tuple val(meta), path("${meta.id}.host_depletion.deacon.json"), emit: summary
+    tuple val(meta), path("${meta.id}.reference_filtered.fastq.gz"), env('READS_POST_REFERENCE_FILTER'), env('READ_MODE'), emit: reads
+    tuple val(meta), path("${meta.id}.reference_filter.deacon.json"), emit: summary
     path 'versions.yml', topic: versions
 
     script:
-    def summary = "${meta.id}.host_depletion.deacon.json"
-    def complexity_arg = params.host_depletion_complexity_threshold != null
-        ? "--complexity-threshold ${params.host_depletion_complexity_threshold}" : ''
+    if (!(filter_mode in ['deplete', 'extract'])) {
+        error "reference_filter_mode must be 'deplete' or 'extract', got '${filter_mode}'"
+    }
+    def deplete_argument = filter_mode == 'deplete' ? '--deplete' : ''
+    def summary = "${meta.id}.reference_filter.deacon.json"
+    def complexity_arg = params.reference_filter_complexity_threshold != null
+        ? "--complexity-threshold ${params.reference_filter_complexity_threshold}" : ''
     def sracha_threads = Math.max(1, (task.cpus as int).intdiv(2))
     def deacon_threads = Math.max(1, (task.cpus as int) - sracha_threads)
     """
@@ -36,14 +42,14 @@ process HOST_DEPLETION_SRA {
 
     sracha get --output-dir . --stdout --split interleaved --threads ${sracha_threads} \\
         --no-progress --yes '${meta.srr}' \\
-    | deacon filter --deplete "\${deacon_args[@]}" \\
-        --abs-threshold ${params.host_depletion_abs_threshold} \\
-        --rel-threshold ${params.host_depletion_rel_threshold} ${complexity_arg} \\
+    | deacon filter ${deplete_argument} "\${deacon_args[@]}" \\
+        --abs-threshold ${params.reference_filter_abs_threshold} \\
+        --rel-threshold ${params.reference_filter_rel_threshold} ${complexity_arg} \\
         --threads ${deacon_threads} --summary ${summary} \\
-        --output ${meta.id}.host_depleted.fastq.gz \\
-        ${depletion_index} -
+        --output ${meta.id}.reference_filtered.fastq.gz \\
+        ${filter_index} -
 
-    READS_POST_DEPLETION=\$(jq -er '.seqs_out' ${summary})
+    READS_POST_REFERENCE_FILTER=\$(jq -er '.seqs_out' ${summary})
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         deacon: "\$(deacon --version | sed 's/^deacon //')"

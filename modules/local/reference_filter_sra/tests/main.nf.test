@@ -1,8 +1,8 @@
 nextflow_process {
 
-    name "Test HOST_DEPLETION_SRA"
+    name "Test REFERENCE_FILTER_SRA"
     script "../main.nf"
-    process "HOST_DEPLETION_SRA"
+    process "REFERENCE_FILTER_SRA"
     tag "network"
 
     test("a paired SRA run streams through Deacon and comes out interleaved") {
@@ -13,6 +13,7 @@ nextflow_process {
                     [id: 'sra_sample', platform: 'illumina', srr: 'SRR33296246'],
                     file("${projectDir}/tests/data/generated/references/host.k31w15.idx"),
                 ])
+                input[1] = 'deplete'
                 """
             }
         }

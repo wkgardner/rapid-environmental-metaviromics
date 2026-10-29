@@ -2,8 +2,8 @@
 // live in the bin/ Python scripts the processes run.
 
 include { RESOLVE_READ_INPUTS              } from '../modules/local/resolve_read_inputs'
-include { HOST_DEPLETION                   } from '../modules/local/host_depletion'
-include { HOST_DEPLETION_SRA               } from '../modules/local/host_depletion_sra'
+include { REFERENCE_FILTER                 } from '../modules/local/reference_filter'
+include { REFERENCE_FILTER_SRA             } from '../modules/local/reference_filter_sra'
 include { BBDUK_TRIM_ADAPTERS              } from '../modules/local/bbduk_trim_adapters'
 include { CLUMPIFY_DEDUP                   } from '../modules/local/clumpify_dedup'
 include { BBDUK_FILTER_READS               } from '../modules/local/bbduk_filter_reads'
@@ -52,20 +52,22 @@ workflow RAPID_WW {
         [id: record.sample_id, platform: record.platform, srr: record.srr.toUpperCase()]
     }
 
-    // ---- Host depletion: one Deacon pass; pairs come out interleaved ----
-    // Skipping depletion still streams reads through Deacon, against an empty index.
-    def depletion_index = params.skip_host_depletion
+    // ---- Reference filter: one Deacon pass (deplete or extract); pairs come out interleaved ----
+    // Skipping it still streams reads through Deacon, depleting against an empty index, so every
+    // read is kept (extract against an empty index would keep none).
+    def filter_index = params.skip_reference_filter
         ? file("${projectDir}/assets/empty_deacon.k31w1.idx")
-        : file(params.host_depletion_index, checkIfExists: true)
-    HOST_DEPLETION(ch_local_reads, depletion_index)
-    HOST_DEPLETION_SRA(ch_sra_runs.map { meta -> tuple(meta, depletion_index) })
-    ch_depleted = HOST_DEPLETION.out.reads
-        .mix(HOST_DEPLETION_SRA.out.reads.map { meta, reads, read_count, read_mode ->
+        : file(params.reference_filter_index, checkIfExists: true)
+    def filter_mode = params.skip_reference_filter ? 'deplete' : params.reference_filter_mode
+    REFERENCE_FILTER(ch_local_reads, filter_index, filter_mode)
+    REFERENCE_FILTER_SRA(ch_sra_runs.map { meta -> tuple(meta, filter_index) }, filter_mode)
+    ch_depleted = REFERENCE_FILTER.out.reads
+        .mix(REFERENCE_FILTER_SRA.out.reads.map { meta, reads, read_count, read_mode ->
             tuple(meta + [read_mode: read_mode], reads, read_count)
         })
-        .map { meta, reads, read_count -> tuple(meta + [reads_post_depletion: read_count as long], reads) }
+        .map { meta, reads, read_count -> tuple(meta + [reads_post_reference_filter: read_count as long], reads) }
         .branch { meta, reads ->
-            has_reads: meta.reads_post_depletion > 0
+            has_reads: meta.reads_post_reference_filter > 0
             no_reads_left: true
         }
 
@@ -79,9 +81,9 @@ workflow RAPID_WW {
 
     ch_deduplicated = params.dedup ? CLUMPIFY_DEDUP(ch_trimmed).reads : ch_trimmed
 
-    // reads_post_qc is the filter's output count, or the depletion count when filtering is skipped.
+    // reads_post_qc is the filter's output count, or the reference-filter count when filtering is skipped.
     ch_preprocessed = params.skip_read_filtering
-        ? ch_deduplicated.map { meta, reads -> tuple(meta, reads, meta.reads_post_depletion) }
+        ? ch_deduplicated.map { meta, reads -> tuple(meta, reads, meta.reads_post_reference_filter) }
         : BBDUK_FILTER_READS(ch_deduplicated).reads
     ch_preprocessed_by_reads = ch_preprocessed
         .map { meta, reads, read_count -> tuple(meta + [reads_post_qc: read_count as long], reads) }
@@ -91,7 +93,7 @@ workflow RAPID_WW {
         }
 
     // ---- preprocessing_read_counts: built per sample once its own logs exist ----
-    ch_step_logs = HOST_DEPLETION.out.summary.mix(HOST_DEPLETION_SRA.out.summary)
+    ch_step_logs = REFERENCE_FILTER.out.summary.mix(REFERENCE_FILTER_SRA.out.summary)
         .mix(BBDUK_TRIM_ADAPTERS.out.log)
         .mix(params.dedup ? CLUMPIFY_DEDUP.out.log : channel.empty())
         .mix(params.skip_read_filtering ? channel.empty() : BBDUK_FILTER_READS.out.log)

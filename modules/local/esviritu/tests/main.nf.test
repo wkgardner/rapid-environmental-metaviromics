@@ -6,8 +6,8 @@ nextflow_process {
 
     test("both_callers: status ok and every sampled genome is called") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -16,6 +16,7 @@ nextflow_process {
                         [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -23,7 +24,7 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                 input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
                 """
             }
@@ -39,8 +40,8 @@ nextflow_process {
 
     test("mapping_only: the diverged norovirus maps with consensus identity below the species threshold") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -49,6 +50,7 @@ nextflow_process {
                         [file("\${reads}/mapping_only_R1.fastq.gz"), file("\${reads}/mapping_only_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -56,7 +58,7 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                 input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
                 """
             }
@@ -76,8 +78,8 @@ nextflow_process {
 
     test("kmer_only: 80 bp reads align nowhere, so no_detections") {
         setup {
-            run("HOST_DEPLETION") {
-                script "../../host_depletion/main.nf"
+            run("REFERENCE_FILTER") {
+                script "../../reference_filter/main.nf"
                 process {
                     """
                     def reads = "${projectDir}/tests/data/generated/reads"
@@ -86,6 +88,7 @@ nextflow_process {
                         [file("\${reads}/kmer_only_R1.fastq.gz"), file("\${reads}/kmer_only_R2.fastq.gz")],
                     ])
                     input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    input[2] = 'deplete'
                     """
                 }
             }
@@ -93,7 +96,7 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                input[0] = REFERENCE_FILTER.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
                 input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
                 """
             }

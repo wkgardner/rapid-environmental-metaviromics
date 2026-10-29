@@ -1,6 +1,6 @@
 #!/usr/bin/env nextflow
 // Rapid wastewater metagenomics v1. Spec: docs/v1-spec.md. Usage:
-//   nextflow run . -params-file my_run.yaml     (input, host_depletion_index, sylph_database,
+//   nextflow run . -params-file my_run.yaml     (input, reference_filter_index, sylph_database,
 //                                                vpd_lookup, esviritu_database, outdir, ...)
 
 include { RAPID_WW           } from './workflows/rapid_ww'

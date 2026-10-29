@@ -23,7 +23,7 @@ process BUILD_PREPROCESSING_READ_COUNTS {
     """
     build_preprocessing_read_counts.py \\
         --run-id ${run_id} --sample-id ${meta.id} --out-dir . \\
-        ${stepArgument(logs, '--host-depletion-summary', '.host_depletion.deacon.json', params.skip_host_depletion)} \\
+        ${stepArgument(logs, '--reference-filter-summary', '.reference_filter.deacon.json', params.skip_reference_filter)} \\
         ${stepArgument(logs, '--adapter-trimming-log', '.adapter_trimming.bbduk.log', !params.trim_adapters)} \\
         ${stepArgument(logs, '--dedup-log', '.dedup.clumpify.log', !params.dedup)} \\
         ${stepArgument(logs, '--read-filtering-log', '.read_filtering.bbduk.log', params.skip_read_filtering)}
