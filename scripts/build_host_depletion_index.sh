@@ -3,14 +3,14 @@
 # all k31/w15. SILVA is RNA, so U is converted to T first (spec). Run from the repo root:
 #   pixi run bash scripts/build_host_depletion_index.sh ref
 # Inputs under <ref_dir>: silva/SILVA_144_SSURef_NR99_tax_silva_trunc.fasta.gz,
-# silva/SILVA_138.2_LSURef_NR99_tax_silva.fasta.gz, deacon/panhuman-1.k31w15.idx.
-# Outputs in <ref_dir>/deacon/: silva_ssu144.k31w15.idx, silva_lsu138.2.k31w15.idx,
+# silva/SILVA_138.2_LSURef_NR99_tax_silva.fasta.gz, deacon-indexes/panhuman-1.k31w15.idx.
+# Outputs in <ref_dir>/deacon-indexes/: silva_ssu144.k31w15.idx, silva_lsu138.2.k31w15.idx,
 # silva_ssu144_lsu138.2.k31w15.idx and panhuman-1_silva_ssu144_lsu138.2.k31w15.idx.
 set -euo pipefail
 
 ref_dir="${1:?usage: build_host_depletion_index.sh <ref_dir>}"
 threads="${THREADS:-16}"
-deacon_dir="${ref_dir}/deacon"
+deacon_dir="${ref_dir}/deacon-indexes"
 export TMPDIR="${TMPDIR:-${ref_dir}/tmp}"
 mkdir -p "${TMPDIR}"
 
