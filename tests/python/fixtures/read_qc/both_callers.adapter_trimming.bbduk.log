@@ -1,0 +1,27 @@
+java -ea -XX:+ExitOnOutOfMemoryError --add-modules jdk.incubator.vector -Xmx3g -Xms3g -cp /path/to/rapid-ww-metagenomics/.pixi/envs/default/opt/bbmap-39.91-0/current/ bbduk.BBDukS -Xmx3g in=both_callers.host_depleted.fastq.gz out=both_callers.adapter_trimmed.fastq.gz ref=adapters ktrim=r k=23 mink=11 hdist=1 int=t tpe tbo removeifeitherbad=t threads=2 -eoom
+WARNING: Using incubator modules: jdk.incubator.vector
+Executing bbduk.BBDukS [-Xmx3g, in=both_callers.host_depleted.fastq.gz, out=both_callers.adapter_trimmed.fastq.gz, ref=adapters, ktrim=r, k=23, mink=11, hdist=1, int=t, tpe, tbo, removeifeitherbad=t, threads=2, -eoom]
+Version 39.91
+
+Set INTERLEAVED to true
+Set threads to 2
+maskMiddle was disabled because useShortKmers=true
+Allocating kmer table: 	Added 217135 kmers; time: 	0.259 seconds.
+Memory: max=3221m, total=3221m, free=3167m, used=54m
+
+Initial:
+Memory: max=3221m, total=3221m, free=3167m, used=54m
+
+Input is being processed as paired
+Started output streams:	0.005 seconds.
+Processing time:   		0.347 seconds.
+
+Input:                  	3800 reads 		570000 bases.
+KTrimmed:               	246 reads (6.47%) 	17910 bases (3.14%)
+Trimmed by overlap:     	0 reads (0.00%) 	0 bases (0.00%)
+Total Removed:          	0 reads (0.00%) 	17910 bases (3.14%)
+Result:                 	3800 reads (100.00%) 	552090 bases (96.86%)
+
+Time:                         	0.616 seconds.
+Reads Processed:        3800 	6.17k reads/sec
+Bases Processed:      570000 	0.93m bases/sec

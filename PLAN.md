@@ -68,4 +68,4 @@ python 3.12 + polars + biopython + pyyaml + pytest.
 ## Open items
 
 - Deacon 0.18.0 vs 0.19.1: confirm the user's union index works with 0.18.0.
-- Which BBDuk stderr line counts `minlength` drops (verify on the first real log).
+- Resolved 2026-10-29: BBDuk counts `minlength` drops inside "Low quality discards" (254 = 200 low-quality + 54 short on the test data), so `qc_low_quality_reads_removed` covers quality and length.

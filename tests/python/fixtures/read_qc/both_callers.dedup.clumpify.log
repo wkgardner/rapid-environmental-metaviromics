@@ -1,0 +1,44 @@
+java -ea -XX:+ExitOnOutOfMemoryError --add-modules jdk.incubator.vector -Xmx3g -Xms3g -cp /path/to/rapid-ww-metagenomics/.pixi/envs/default/opt/bbmap-39.91-0/current/ clump.Clumpify -Xmx3g in=both_callers.host_depleted.fastq.gz out=both_callers.deduplicated.fastq.gz dedupe=t optical=f reorder=f subs=0 allowns=f int=t usetmpdir=t tmpdir=/path/to/rapid-ww-metagenomics/.nf-test/tests/b9ec2e6d7d112252616618dac363928b/work/ce/1f41bc564f7cca89aec17e713321c9/tmp threads=2 -eoom
+WARNING: Using incubator modules: jdk.incubator.vector
+Executing clump.Clumpify [-Xmx3g, in=both_callers.host_depleted.fastq.gz, out=both_callers.deduplicated.fastq.gz, dedupe=t, optical=f, reorder=f, subs=0, allowns=f, int=t, usetmpdir=t, tmpdir=/path/to/rapid-ww-metagenomics/.nf-test/tests/b9ec2e6d7d112252616618dac363928b/work/ce/1f41bc564f7cca89aec17e713321c9/tmp, threads=2, -eoom]
+Version 39.91
+
+Set INTERLEAVED to true
+Read Estimate:          9697
+Memory Estimate:        7 MB
+Memory Available:       2480 MB
+Set groups to 1
+Executing clump.KmerSort1 [in1=both_callers.host_depleted.fastq.gz, in2=, out1=both_callers.deduplicated.fastq.gz, out2=, groups=1, ecco=false, rename=false, shortname=f, unpair=false, repair=false, namesort=false, ow=true, dedupe=t, reorder=f, threads=2]
+
+Set threads to 2
+Making comparator.
+Made a comparator with k=31, seed=1, border=1, hashes=4
+Starting cris 0.
+Fetching reads.
+Making fetch threads.
+Starting threads.
+Waiting for threads.
+Fetch time: 	0.111 seconds.
+Closing input stream.
+Combining thread output.
+Combine time: 	0.000 seconds.
+Sorting.
+Sort time: 	0.001 seconds.
+Making clumps.
+Clump time: 	0.001 seconds.
+Deduping.
+Dedupe time: 	0.015 seconds.
+Writing.
+Waiting for writing to complete.
+Write time: 	0.034 seconds.
+Done!
+Time:                         	0.326 seconds.
+Reads Processed:          3800 	11.66k reads/sec
+Bases Processed:        570000 	1.75m bases/sec
+
+Reads In:                 3800
+Clumps Formed:             698
+Duplicates Found:          120	3.158%
+Reads Out:                3680
+Bases Out:              552000
+Total time: 	0.439 seconds.
