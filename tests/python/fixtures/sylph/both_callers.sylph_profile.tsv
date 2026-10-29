@@ -1,0 +1,6 @@
+Sample_file	Genome_file	Taxonomic_abundance	Sequence_abundance	Adjusted_ANI	Eff_cov	ANI_5-95_percentile	Eff_lambda	Lambda_5-95_percentile	Median_cov	Mean_cov_geq1	Containment_ind	Naive_ANI	kmers_reassigned	Contig_name
+both_callers	sylph_genomes/GCF_000859645.1.fna	35.4178	22.7888	100.00	15.000	NA-NA	HIGH	NA-NA	15	15.247	81/81	100.00	0	NC_003630.1__f0
+both_callers	sylph_genomes/PSVA_S2-2__Sadwavirus_alphananas.fna	18.6871	16.6616	99.94	7.914	NA-NA	HIGH	NA-NA	8	7.914	105/107	99.94	0	OP860245.1__f0
+both_callers	sylph_genomes/GCF_001461485.1.fna	18.3940	11.9022	100.00	7.790	NA-NA	HIGH	NA-NA	8	7.790	81/81	100.00	0	NC_028478.1__f0
+both_callers	sylph_genomes/set_43d19931109e46219fb3876e13775cee063e1ed0.fna	17.3025	18.1608	99.90	7.328	NA-NA	HIGH	NA-NA	7	7.328	122/126	99.90	0	JX040427.1__f0
+both_callers	sylph_genomes/acc_ON897592.1.fna	10.1986	30.4866	99.94	4.319	NA-NA	HIGH	NA-NA	4	4.319	379/386	99.94	0	ON897592.1__f0
