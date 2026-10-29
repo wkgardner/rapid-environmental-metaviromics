@@ -1,0 +1,41 @@
+nextflow_process {
+
+    name "Test BBDUK_TRIM_ADAPTERS"
+    script "../main.nf"
+    process "BBDUK_TRIM_ADAPTERS"
+
+
+    test("adapter read-through is trimmed and no read is lost") {
+        setup {
+            run("HOST_DEPLETION") {
+                script "../../host_depletion/main.nf"
+                process {
+                    """
+                    def reads = "${projectDir}/tests/data/generated/reads"
+                    input[0] = Channel.of([
+                        [id: 'both_callers', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                        [file("\${reads}/both_callers_R1.fastq.gz"), file("\${reads}/both_callers_R2.fastq.gz")],
+                    ])
+                    input[1] = file("${projectDir}/tests/data/generated/references/host.k31w15.idx")
+                    """
+                }
+            }
+        }
+        when {
+            process {
+                """
+                input[0] = HOST_DEPLETION.out.reads.map { meta, depleted_fastq, read_count -> [meta, depleted_fastq] }
+                """
+            }
+        }
+        then {
+            assert process.success
+            def fastq_sequences = { fastq -> path(fastq).linesGzip.collate(4)*.get(1) }
+            // both_callers keeps 1,900 non-host pairs after depletion (tests/data/test_data_spec.yaml).
+            def sequences = fastq_sequences(process.out.reads[0][1])
+            assert sequences.size() == 3800
+            assert sequences.every { !it.contains('AGATCGGAAGAGCACACGTC') && !it.contains('AGATCGGAAGAGCGTCGTGT') }
+            assert sequences.any { it.size() < 150 }
+        }
+    }
+}
