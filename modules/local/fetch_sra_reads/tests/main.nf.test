@@ -1,0 +1,23 @@
+nextflow_process {
+
+    name "Test FETCH_SRA_READS"
+    script "../main.nf"
+    process "FETCH_SRA_READS"
+    tag "network"
+
+    test("a paired SRA run is downloaded interleaved") {
+        when {
+            process {
+                """
+                input[0] = Channel.of([id: 'sra_sample', platform: 'illumina', srr: 'SRR33296246'])
+                """
+            }
+        }
+        then {
+            assert process.success
+            // SRR33296246 has 479,717 spots of 2 reads (sracha info).
+            assert process.out.reads[0][2] == 'paired'
+            assert path(process.out.reads[0][1]).linesGzip.count { it.startsWith('@SRR33296246') } == 959434
+        }
+    }
+}

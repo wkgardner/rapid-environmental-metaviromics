@@ -1,0 +1,48 @@
+nextflow_process {
+
+    name "Test PREPARE_READS"
+    script "../main.nf"
+    process "PREPARE_READS"
+
+    test("lane-split pairs are merged into one interleaved FASTQ") {
+        when {
+            process {
+                """
+                // The same pair twice stands in for two lanes of one sample.
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'kmer_only', platform: 'illumina', read_mode: 'paired', r1_count: 2],
+                    [file("\${reads}/kmer_only_R1.fastq.gz"), file("\${reads}/kmer_only_R1.fastq.gz"),
+                     file("\${reads}/kmer_only_R2.fastq.gz"), file("\${reads}/kmer_only_R2.fastq.gz")],
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            // kmer_only has 400 pairs; two "lanes" give 800 pairs, 1,600 reads, alternating /1 /2.
+            def read_names = path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }
+            assert read_names.size() == 1600
+            assert read_names[0].endsWith('/1') && read_names[1].endsWith('/2')
+            assert read_names[0].replaceAll(/\/1$/, '') == read_names[1].replaceAll(/\/2$/, '')
+        }
+    }
+
+    test("single-end reads are concatenated") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'kmer_only', platform: 'ont', read_mode: 'single', r1_count: 2],
+                    [file("\${reads}/kmer_only_R1.fastq.gz"), file("\${reads}/kmer_only_R2.fastq.gz")],
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }.size() == 800
+        }
+    }
+}

@@ -89,4 +89,41 @@ nextflow_pipeline {
             ]
         }
     }
+
+    test("skip_reference_filter: the reference filter never runs and host reads go on to QC") {
+        setup {
+            def reads = "${projectDir}/tests/data/generated/reads"
+            def samplesheet = new File("${launchDir}/.nf-test/inputs/e2e_skip_samplesheet.csv")
+            samplesheet.parentFile.mkdirs()
+            samplesheet.text = "sample_id,srr,platform,fastq1,fastq2,fastq1_glob,fastq2_glob\n" +
+                "kmer_only,,illumina,${reads}/kmer_only_R1.fastq.gz,${reads}/kmer_only_R2.fastq.gz,,\n"
+        }
+        when {
+            params {
+                def references = "${projectDir}/tests/data/generated/references"
+                input = "${launchDir}/.nf-test/inputs/e2e_skip_samplesheet.csv"
+                outdir = "${outputDir}"
+                run_id = 'rww_20261029_skip'
+                skip_reference_filter = true
+                sylph_database = "${references}/vpd.syldb"
+                vpd_lookup = "${references}/vpd_lookup.tsv"
+                esviritu_database = "${references}/esviritu_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def task_names = workflow.trace.tasks()*.name
+            assert !task_names.any { it.contains('REFERENCE_FILTER') }
+            assert task_names.any { it.contains('PREPARE_READS') }
+
+            def lines = path("${outputDir}/01_preprocessing/preprocessing_read_counts/rww_20261029_skip_kmer_only.preprocessing_read_counts.tsv").readLines()
+            def counts = [lines[0].split('\t', -1) as List, lines[1].split('\t', -1) as List].transpose().collectEntries()
+            // Nothing removed the 100 host pairs, so all 800 reads reach QC.
+            assert counts.raw_reads == '800'
+            assert counts.reads_removed_by_reference_filter == 'skipped' && counts.reads_post_reference_filter == 'skipped'
+
+            def metadata = new org.yaml.snakeyaml.Yaml().load(path("${outputDir}/05_run_summary/rww_20261029_skip.run_metadata.yaml").text)
+            assert metadata.steps.reference_filter == [skipped: true]
+        }
+    }
 }

@@ -4,6 +4,8 @@
 include { RESOLVE_READ_INPUTS              } from '../modules/local/resolve_read_inputs'
 include { REFERENCE_FILTER                 } from '../modules/local/reference_filter'
 include { REFERENCE_FILTER_SRA             } from '../modules/local/reference_filter_sra'
+include { PREPARE_READS                    } from '../modules/local/prepare_reads'
+include { FETCH_SRA_READS                  } from '../modules/local/fetch_sra_reads'
 include { BBDUK_TRIM_ADAPTERS              } from '../modules/local/bbduk_trim_adapters'
 include { CLUMPIFY_DEDUP                   } from '../modules/local/clumpify_dedup'
 include { BBDUK_FILTER_READS               } from '../modules/local/bbduk_filter_reads'
@@ -53,23 +55,25 @@ workflow RAPID_WW {
     }
 
     // ---- Reference filter: one Deacon pass (deplete or extract); pairs come out interleaved ----
-    // Skipping it still streams reads through Deacon, depleting against an empty index, so every
-    // read is kept (extract against an empty index would keep none).
-    def filter_index = params.skip_reference_filter
-        ? file("${projectDir}/assets/empty_deacon.k31w1.idx")
-        : file(params.reference_filter_index, checkIfExists: true)
-    def filter_mode = params.skip_reference_filter ? 'deplete' : params.reference_filter_mode
-    REFERENCE_FILTER(ch_local_reads, filter_index, filter_mode)
-    REFERENCE_FILTER_SRA(ch_sra_runs.map { meta -> tuple(meta, filter_index) }, filter_mode)
-    ch_depleted = REFERENCE_FILTER.out.reads
-        .mix(REFERENCE_FILTER_SRA.out.reads.map { meta, reads, read_count, read_mode ->
-            tuple(meta + [read_mode: read_mode], reads, read_count)
-        })
-        .map { meta, reads, read_count -> tuple(meta + [reads_post_reference_filter: read_count as long], reads) }
-        .branch { meta, reads ->
-            has_reads: meta.reads_post_reference_filter > 0
-            no_reads_left: true
-        }
+    // --skip_reference_filter skips it entirely: PREPARE_READS / FETCH_SRA_READS only merge lanes
+    // and interleave pairs, and the read count after the filter is unknown (null), not guessed.
+    if (params.skip_reference_filter) {
+        ch_filtered = PREPARE_READS(ch_local_reads).reads
+            .mix(FETCH_SRA_READS(ch_sra_runs).reads.map { meta, reads, read_mode -> tuple(meta + [read_mode: read_mode], reads) })
+            .map { meta, reads -> tuple(meta + [reads_post_reference_filter: null], reads) }
+        ch_reference_filter_summaries = channel.empty()
+    } else {
+        def filter_index = file(params.reference_filter_index, checkIfExists: true)
+        ch_filtered = REFERENCE_FILTER(ch_local_reads, filter_index, params.reference_filter_mode).reads
+            .mix(REFERENCE_FILTER_SRA(ch_sra_runs.map { meta -> tuple(meta, filter_index) }, params.reference_filter_mode).reads
+                .map { meta, reads, read_count, read_mode -> tuple(meta + [read_mode: read_mode], reads, read_count) })
+            .map { meta, reads, read_count -> tuple(meta + [reads_post_reference_filter: read_count as long], reads) }
+        ch_reference_filter_summaries = REFERENCE_FILTER.out.summary.mix(REFERENCE_FILTER_SRA.out.summary)
+    }
+    ch_depleted = ch_filtered.branch { meta, reads ->
+        has_reads: meta.reads_post_reference_filter == null || meta.reads_post_reference_filter > 0
+        no_reads_left: true
+    }
 
     // ---- Read QC: NVD's BBTools chain (trim -> dedup -> filter) ----
     ch_for_trimming = ch_depleted.has_reads.branch { meta, reads ->
@@ -81,25 +85,26 @@ workflow RAPID_WW {
 
     ch_deduplicated = params.dedup ? CLUMPIFY_DEDUP(ch_trimmed).reads : ch_trimmed
 
-    // reads_post_qc is the filter's output count, or the reference-filter count when filtering is skipped.
+    // reads_post_qc is the filter's output count, else the reference-filter count (null if unknown).
     ch_preprocessed = params.skip_read_filtering
         ? ch_deduplicated.map { meta, reads -> tuple(meta, reads, meta.reads_post_reference_filter) }
         : BBDUK_FILTER_READS(ch_deduplicated).reads
     ch_preprocessed_by_reads = ch_preprocessed
-        .map { meta, reads, read_count -> tuple(meta + [reads_post_qc: read_count as long], reads) }
+        .map { meta, reads, read_count -> tuple(meta + [reads_post_qc: read_count == null ? null : read_count as long], reads) }
         .branch { meta, reads ->
-            callable: meta.reads_post_qc > 0
+            callable: meta.reads_post_qc == null || meta.reads_post_qc > 0
             no_reads_left: true
         }
 
     // ---- preprocessing_read_counts: built per sample once its own logs exist ----
-    ch_step_logs = REFERENCE_FILTER.out.summary.mix(REFERENCE_FILTER_SRA.out.summary)
+    ch_step_logs = ch_reference_filter_summaries
         .mix(BBDUK_TRIM_ADAPTERS.out.log)
         .mix(params.dedup ? CLUMPIFY_DEDUP.out.log : channel.empty())
         .mix(params.skip_read_filtering ? channel.empty() : BBDUK_FILTER_READS.out.log)
         .map { meta, log_file -> tuple(meta.id, log_file) }
-    ch_expected_log_counts = ch_depleted.has_reads.map { meta, reads -> tuple(meta.id, meta, 1 + countReadQcLogs(meta)) }
-        .mix(ch_depleted.no_reads_left.map { meta, reads -> tuple(meta.id, meta, 1) })
+    def reference_filter_logs = params.skip_reference_filter ? 0 : 1
+    ch_expected_log_counts = ch_depleted.has_reads.map { meta, reads -> tuple(meta.id, meta, reference_filter_logs + countReadQcLogs(meta)) }
+        .mix(ch_depleted.no_reads_left.map { meta, reads -> tuple(meta.id, meta, reference_filter_logs) })
     ch_sample_logs = ch_step_logs
         .combine(ch_expected_log_counts, by: 0)
         .map { sample_id, log_file, meta, expected_logs -> tuple(groupKey(sample_id, expected_logs), meta, log_file) }
@@ -131,7 +136,7 @@ workflow RAPID_WW {
     ch_samples_without_reads = ch_depleted.no_reads_left.map { meta, reads -> meta }
         .mix(ch_preprocessed_by_reads.no_reads_left.map { meta, reads -> meta })
     ch_status_rows = ch_preprocessed_by_reads.callable
-        .map { meta, reads -> tuple(meta, 'preprocessing', [reads_left: meta.reads_post_qc], []) }
+        .map { meta, reads -> tuple(meta, 'preprocessing', meta.reads_post_qc == null ? [status: 'ok'] : [reads_left: meta.reads_post_qc], []) }
         .mix(ch_samples_without_reads.flatMap { meta -> [
             tuple(meta, 'preprocessing', [reads_left: 0], []),
             tuple(meta, 'genome_kmer_based_calling', [status: 'skipped_no_reads'], []),
