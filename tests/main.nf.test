@@ -1,0 +1,89 @@
+nextflow_pipeline {
+
+    name "End-to-end: the v1 pipeline on the synthetic dataset"
+    script "../main.nf"
+
+    test("every sample ends with the calls, counts and statuses its design intends") {
+        setup {
+            // The committed reads, with a samplesheet written for this checkout's absolute paths.
+            def reads = "${projectDir}/tests/data/generated/reads"
+            def samplesheet = new File("${launchDir}/.nf-test/inputs/e2e_samplesheet.csv")
+            samplesheet.parentFile.mkdirs()
+            samplesheet.text = "sample_id,srr,platform,fastq1,fastq2,fastq1_glob,fastq2_glob\n" +
+                ['both_callers', 'kmer_only', 'mapping_only', 'neither', 'host_only'].collect { sample ->
+                    "${sample},,illumina,${reads}/${sample}_R1.fastq.gz,${reads}/${sample}_R2.fastq.gz,,"
+                }.join("\n") + "\n"
+        }
+        when {
+            params {
+                def references = "${projectDir}/tests/data/generated/references"
+                input = "${launchDir}/.nf-test/inputs/e2e_samplesheet.csv"
+                outdir = "${outputDir}"
+                run_id = 'rww_20261029_e2e'
+                host_depletion_index = "${references}/host.k31w15.idx"
+                sylph_database = "${references}/vpd.syldb"
+                vpd_lookup = "${references}/vpd_lookup.tsv"
+                esviritu_database = "${references}/esviritu_db"
+                vpd_version = '3.2.4-subset'
+            }
+        }
+        then {
+            assert workflow.success
+            def read_tsv = { relative_path ->
+                def lines = path("${outputDir}/${relative_path}").readLines()
+                def header = lines[0].split('\t', -1) as List
+                lines.drop(1).collect { line -> [header, line.split('\t', -1) as List].transpose().collectEntries() }
+            }
+            def table_file = { folder, sample, table -> "${folder}/${table}/rww_20261029_e2e_${sample}.${table}.tsv" }
+
+            // sample_status: one file per sample and step.
+            def statuses = [:]
+            ['both_callers', 'kmer_only', 'mapping_only', 'neither', 'host_only'].each { sample ->
+                ['preprocessing', 'genome_kmer_based_calling', 'genome_mapping_based_calling'].each { step ->
+                    statuses["${sample}/${step}"] = read_tsv("05_run_summary/sample_status/rww_20261029_e2e_${sample}_${step}.sample_status.tsv")[0].status
+                }
+            }
+            assert statuses == [
+                'both_callers/preprocessing': 'ok', 'both_callers/genome_kmer_based_calling': 'ok', 'both_callers/genome_mapping_based_calling': 'ok',
+                'kmer_only/preprocessing': 'ok', 'kmer_only/genome_kmer_based_calling': 'ok', 'kmer_only/genome_mapping_based_calling': 'no_detections',
+                'mapping_only/preprocessing': 'ok', 'mapping_only/genome_kmer_based_calling': 'no_detections', 'mapping_only/genome_mapping_based_calling': 'ok',
+                'neither/preprocessing': 'ok', 'neither/genome_kmer_based_calling': 'no_detections', 'neither/genome_mapping_based_calling': 'no_detections',
+                'host_only/preprocessing': 'no_reads_left', 'host_only/genome_kmer_based_calling': 'skipped_no_reads', 'host_only/genome_mapping_based_calling': 'skipped_no_reads',
+            ]
+
+            // Both callers find the five genomes sampled into both_callers.
+            def both_callers_assemblies = ['GCF_000859645.1', 'GCF_001461485.1', 'acc:ON897592.1',
+                                           'set:43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA/S2-2__Sadwavirus_alphananas'] as Set
+            assert read_tsv(table_file('02_genome_kmer_based_calling', 'both_callers', 'genome_kmer_based_calls'))*.vpd_assembly as Set == both_callers_assemblies
+            def mapping_calls = read_tsv(table_file('03_genome_mapping_based_calling', 'both_callers', 'genome_mapping_based_calls'))
+            assert mapping_calls*.vpd_assembly as Set == both_callers_assemblies
+            // PMMoV's 800 reads over the Tobamovirus total (PMMoV 800 + ToBRFV 400).
+            def pmmov = mapping_calls.find { it.vpd_assembly == 'GCF_000859645.1' }
+            assert Math.abs((pmmov.normalized_read_ratio as double) - 800 / 1200) < 1e-9
+
+            // k-mer-only and mapping-only cases.
+            assert read_tsv(table_file('02_genome_kmer_based_calling', 'kmer_only', 'genome_kmer_based_calls'))*.vpd_assembly == ['set:MF678311']
+            def norovirus = read_tsv(table_file('03_genome_mapping_based_calling', 'mapping_only', 'genome_mapping_based_calls'))
+            assert norovirus*.vpd_assembly == ['GCF_001595675.1']
+            assert norovirus[0].call_level == 'genus' && norovirus[0].vpd_species == '' && norovirus[0].vpd_genus == 'Norovirus'
+
+            // preprocessing_read_counts: depletion removes every host pair; QC removes the
+            // 60 duplicate SARS-CoV-2 pairs and the 100 low-quality background pairs.
+            def both_counts = read_tsv(table_file('01_preprocessing', 'both_callers', 'preprocessing_read_counts'))[0]
+            assert [both_counts.raw_reads, both_counts.host_reads_removed, both_counts.reads_post_depletion] == ['4400', '600', '3800']
+            assert both_counts.qc_duplicate_reads_removed == '120'
+            assert (both_counts.qc_low_quality_reads_removed as int) >= 200
+            def host_only_counts = read_tsv(table_file('01_preprocessing', 'host_only', 'preprocessing_read_counts'))[0]
+            assert host_only_counts.reads_post_depletion == '0' && host_only_counts.qc_duplicate_reads_removed == ''
+
+            // run_metadata.yaml names the tool behind every step.
+            def metadata = new org.yaml.snakeyaml.Yaml().load(path("${outputDir}/05_run_summary/rww_20261029_e2e.run_metadata.yaml").text)
+            assert metadata.run_id == 'rww_20261029_e2e'
+            assert metadata.references.vpd_version == '3.2.4-subset'
+            assert metadata.steps.collectEntries { step, details -> [step, details.tool] } == [
+                host_depletion: 'deacon', adapter_trimming: 'bbmap', dedup: 'bbmap', read_filtering: 'bbmap',
+                genome_kmer_based_calling: 'sylph', genome_mapping_based_calling: 'esviritu',
+            ]
+        }
+    }
+}
