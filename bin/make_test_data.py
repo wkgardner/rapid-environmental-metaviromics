@@ -93,7 +93,11 @@ def simulate_source_pairs(source: dict, records: list[tuple[str, str]], read_nam
 
     pairs = []
     adapter_pairs = round((total_pairs - duplicate_pairs) * source.get("adapter_fraction", 0.0))
+    # A diverged source is one strain: mutate each record once, then sample reads from it exactly,
+    # so every read carries the same mutations (independent per-read errors would let k-mer tools
+    # recover the reference k-mers at high coverage).
     divergence = source.get("divergence", 0.0)
+    records = [(accession, mutate(sequence, divergence, random_generator)) for accession, sequence in records]
     for pair_index in range(total_pairs - duplicate_pairs):
         accession, sequence = random_generator.choices(records, weights=record_lengths)[0]
         reads_into_adapter = pair_index < adapter_pairs
@@ -105,12 +109,11 @@ def simulate_source_pairs(source: dict, records: list[tuple[str, str]], read_nam
         fragment_start = random_generator.randrange(0, len(sequence) - fragment_length + 1)
         fragment = sequence[fragment_start: fragment_start + fragment_length]
         if reads_into_adapter:
-            read1 = read_through_adapter(mutate(fragment, divergence, random_generator), TRUSEQ_ADAPTER_READ1, read_length)
-            read2 = read_through_adapter(mutate(reverse_complement(fragment), divergence, random_generator),
-                                         TRUSEQ_ADAPTER_READ2, read_length)
+            read1 = read_through_adapter(fragment, TRUSEQ_ADAPTER_READ1, read_length)
+            read2 = read_through_adapter(reverse_complement(fragment), TRUSEQ_ADAPTER_READ2, read_length)
         else:
-            read1 = mutate(fragment[:read_length], divergence, random_generator)
-            read2 = mutate(reverse_complement(fragment)[:read_length], divergence, random_generator)
+            read1 = fragment[:read_length]
+            read2 = reverse_complement(fragment)[:read_length]
         pairs.append({
             "source_record": accession,
             "read1_start": fragment_start,

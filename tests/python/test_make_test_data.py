@@ -173,3 +173,20 @@ def test_low_complexity_source_writes_dinucleotide_repeats(tmp_path):
 
     for _, sequence, _ in read_fastq_records(out_dir / "reads" / "repeats_R1.fastq.gz"):
         assert len(set(sequence)) <= 2
+
+
+def test_a_diverged_source_is_one_strain_so_overlapping_reads_agree(tmp_path):
+    samples = [{"sample_id": "strain", "sources": [
+        {"genome": "GCF_001595675.1", "read_pairs": 300, "divergence": 0.12},
+    ]}]
+    out_dir = tmp_path / "out"
+    make_test_data(write_spec(tmp_path, samples), out_dir)
+
+    truth = pl.read_csv(out_dir / "truth" / "strain.reads.tsv", separator="\t")
+    read1 = {name.split("/")[0]: sequence for name, sequence, _ in read_fastq_records(out_dir / "reads" / "strain_R1.fastq.gz")}
+    bases_seen_at_position: dict[int, set[str]] = {}
+    for row in truth.iter_rows(named=True):
+        for offset, base in enumerate(read1[row["read_name"]]):
+            bases_seen_at_position.setdefault(row["read1_start"] + offset, set()).add(base)
+    covered_more_than_once = [bases for bases in bases_seen_at_position.values() if bases]
+    assert all(len(bases) == 1 for bases in covered_more_than_once)
