@@ -26,11 +26,11 @@ samples:
       - {genome: "set:MF678311", read_pairs: 300, read_length: 80}
       - {genome: host, read_pairs: 100}
 
-  # Genome mapping-based only: 12 % diverged reads fall below sylph's 90 ANI floor
+  # Genome mapping-based only: 14 % diverged reads fall below sylph's 90 ANI floor
   # but still map, so EsViritu makes a genus-level call.
   - sample_id: mapping_only
     sources:
-      - {genome: GCF_001595675.1, read_pairs: 600, divergence: 0.12}
+      - {genome: GCF_001595675.1, read_pairs: 600, divergence: 0.14}
       - {genome: host, read_pairs: 100}
 
   # Neither caller: background, low-complexity repeats (BBDuk entropy filter) and host.

@@ -27,3 +27,13 @@ vpd_subset_directory="$(pwd)/tests/data/vpd_subset"
     sylph sketch --gl sylph_genome_list.txt -k 31 -c 50 -t 2 -o vpd
     rm -rf sylph_genomes sylph_genome_list.txt
 )
+
+# Genome mapping-based (EsViritu) database: VPD's FASTA + metadata, its .fai and an sr .mmi,
+# the four files EsViritu reads from --db.
+esviritu_directory="${references_directory}/esviritu_db"
+mkdir -p "${esviritu_directory}"
+cp "${vpd_subset_directory}/virus_pathogen_database.fna" "${vpd_subset_directory}/virus_pathogen_database.all_metadata.tsv" \
+    "${esviritu_directory}/"
+samtools faidx "${esviritu_directory}/virus_pathogen_database.fna"
+minimap2 -x sr -t 2 -d "${esviritu_directory}/virus_pathogen_database.mmi" \
+    "${esviritu_directory}/virus_pathogen_database.fna" 2> /dev/null

@@ -84,7 +84,7 @@ nextflow_process {
         }
     }
 
-    test("mapping_only: 12 % diverged norovirus is below the ANI floor") {
+    test("mapping_only: 14 % diverged norovirus is below the ANI floor") {
         setup {
             run("HOST_DEPLETION") {
                 script "../../host_depletion/main.nf"
