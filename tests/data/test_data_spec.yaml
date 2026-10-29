@@ -9,12 +9,12 @@ background_genome_length: 20000
 
 samples:
   # Found by both callers: two tobamoviruses (genus normalisation), SARS-CoV-2 with
-  # duplicates (Clumpify), segmented rotavirus, and the Assembly whose name has a "/".
+  # duplicates (Clumpify) and adapter read-through (BBDuk), segmented rotavirus, and the Assembly whose name has a "/".
   - sample_id: both_callers
     sources:
       - {genome: GCF_000859645.1, read_pairs: 400}
       - {genome: GCF_001461485.1, read_pairs: 200}
-      - {genome: "acc:ON897592.1", read_pairs: 600, duplicate_fraction: 0.1}
+      - {genome: "acc:ON897592.1", read_pairs: 600, duplicate_fraction: 0.1, adapter_fraction: 0.2}
       - {genome: "set:43d19931109e46219fb3876e13775cee063e1ed0", read_pairs: 300}
       - {genome: "PSVA/S2-2__Sadwavirus_alphananas", read_pairs: 300}
       - {genome: host, read_pairs: 300}
@@ -33,10 +33,11 @@ samples:
       - {genome: GCF_001595675.1, read_pairs: 600, divergence: 0.12}
       - {genome: host, read_pairs: 100}
 
-  # Neither caller: only background and host.
+  # Neither caller: background, low-complexity repeats (BBDuk entropy filter) and host.
   - sample_id: neither
     sources:
       - {genome: background, read_pairs: 300}
+      - {genome: low_complexity, read_pairs: 100}
       - {genome: host, read_pairs: 200}
 
   # Nothing survives host depletion: status no_reads_left, callers skipped.
