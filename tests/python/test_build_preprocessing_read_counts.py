@@ -12,7 +12,7 @@ import polars as pl
 BUILD_SCRIPT = Path(__file__).parents[2] / "bin" / "build_preprocessing_read_counts.py"
 FIXTURES = Path(__file__).parent / "fixtures" / "read_qc"
 COLUMNS = [
-    "run_id", "sample_id", "raw_reads", "host_reads_removed", "reads_post_depletion",
+    "run_id", "sample_id", "raw_reads", "reads_removed_by_reference_filter", "reads_post_reference_filter",
     "qc_adapter_trimmed_reads", "qc_duplicate_reads_removed", "qc_low_quality_reads_removed",
     "qc_low_complexity_reads_removed", "reads_post_qc",
 ]
@@ -35,14 +35,14 @@ def build(tmp_path: Path, sample_id: str, *step_arguments: str) -> dict:
 def test_every_step_ran(tmp_path):
     row = build(
         tmp_path, "both_callers",
-        "--host-depletion-summary", str(FIXTURES / "both_callers.host_depletion.deacon.json"),
+        "--reference-filter-summary", str(FIXTURES / "both_callers.reference_filter.deacon.json"),
         "--adapter-trimming-log", str(FIXTURES / "both_callers.adapter_trimming.bbduk.log"),
         "--dedup-log", str(FIXTURES / "both_callers.dedup.clumpify.log"),
         "--read-filtering-log", str(FIXTURES / "both_callers.read_filtering.bbduk.log"),
     )
     assert row == {
         "run_id": "rww_20261029_test", "sample_id": "both_callers",
-        "raw_reads": "4400", "host_reads_removed": "600", "reads_post_depletion": "3800",
+        "raw_reads": "4400", "reads_removed_by_reference_filter": "600", "reads_post_reference_filter": "3800",
         "qc_adapter_trimmed_reads": "246", "qc_duplicate_reads_removed": "120",
         "qc_low_quality_reads_removed": "200", "qc_low_complexity_reads_removed": "16",
         "reads_post_qc": "3584",
@@ -52,22 +52,22 @@ def test_every_step_ran(tmp_path):
 def test_skipped_steps_read_skipped_and_reads_post_qc_comes_from_the_last_step_that_ran(tmp_path):
     row = build(
         tmp_path, "both_callers",
-        "--host-depletion-summary", "skipped",
+        "--reference-filter-summary", "skipped",
         "--adapter-trimming-log", str(FIXTURES / "both_callers.adapter_trimming.bbduk.log"),
         "--dedup-log", str(FIXTURES / "both_callers.dedup.clumpify.log"),
         "--read-filtering-log", "skipped",
     )
-    # With depletion skipped, the raw count is what the first QC step read in.
+    # With the reference filter skipped, the raw count is what the first QC step read in.
     assert row["raw_reads"] == "3800"
-    assert row["host_reads_removed"] == row["reads_post_depletion"] == "skipped"
+    assert row["reads_removed_by_reference_filter"] == row["reads_post_reference_filter"] == "skipped"
     assert row["qc_low_quality_reads_removed"] == row["qc_low_complexity_reads_removed"] == "skipped"
     assert row["reads_post_qc"] == "3680"
 
 
-def test_sample_with_no_reads_left_after_depletion_has_blank_qc_columns(tmp_path):
+def test_sample_with_no_reads_left_after_the_reference_filter_has_blank_qc_columns(tmp_path):
     row = build(tmp_path, "host_only",
-                "--host-depletion-summary", str(FIXTURES / "host_only.host_depletion.deacon.json"))
-    assert (row["raw_reads"], row["host_reads_removed"], row["reads_post_depletion"]) == ("600", "600", "0")
+                "--reference-filter-summary", str(FIXTURES / "host_only.reference_filter.deacon.json"))
+    assert (row["raw_reads"], row["reads_removed_by_reference_filter"], row["reads_post_reference_filter"]) == ("600", "600", "0")
     assert row["qc_adapter_trimmed_reads"] is None
     assert row["qc_duplicate_reads_removed"] is None
     assert row["reads_post_qc"] == "0"
@@ -76,7 +76,7 @@ def test_sample_with_no_reads_left_after_depletion_has_blank_qc_columns(tmp_path
 def test_ont_sample_without_adapter_trimming_has_a_blank_trim_column(tmp_path):
     row = build(
         tmp_path, "ont_sample",
-        "--host-depletion-summary", str(FIXTURES / "both_callers.host_depletion.deacon.json"),
+        "--reference-filter-summary", str(FIXTURES / "both_callers.reference_filter.deacon.json"),
         "--dedup-log", str(FIXTURES / "both_callers.dedup.clumpify.log"),
         "--read-filtering-log", str(FIXTURES / "both_callers.read_filtering.bbduk.log"),
     )

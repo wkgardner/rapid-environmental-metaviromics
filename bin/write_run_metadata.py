@@ -2,7 +2,7 @@
 """Write <run_id>.run_metadata.yaml: what this run did, with which tools and settings.
 
 Output tables carry tool-neutral names, so this file is where a reader finds which tool and
-version ran each step, what host depletion removed and against which index, which databases
+version ran each step, the reference filter's mode (deplete or extract) and index, which databases
 the callers used, and every effective param.
 
 --versions takes the versions.yml files the processes emit ('"WORKFLOW:...:PROCESS": {tool:
@@ -18,8 +18,8 @@ from pathlib import Path
 import yaml
 
 STEP_BY_PROCESS = {
-    "HOST_DEPLETION": "host_depletion",
-    "HOST_DEPLETION_SRA": "host_depletion",
+    "REFERENCE_FILTER": "reference_filter",
+    "REFERENCE_FILTER_SRA": "reference_filter",
     "BBDUK_TRIM_ADAPTERS": "adapter_trimming",
     "CLUMPIFY_DEDUP": "dedup",
     "BBDUK_FILTER_READS": "read_filtering",
@@ -28,7 +28,7 @@ STEP_BY_PROCESS = {
     "ESVIRITU": "genome_mapping_based_calling",
     "MULTIQC": "qc_report",
 }
-STEPS_IN_ORDER = ["host_depletion", "adapter_trimming", "dedup", "read_filtering",
+STEPS_IN_ORDER = ["reference_filter", "adapter_trimming", "dedup", "read_filtering",
                   "genome_kmer_based_calling", "genome_mapping_based_calling", "qc_report"]
 
 
@@ -41,8 +41,9 @@ def step_is_switched_off(step: str, params: dict) -> bool:
 
 def step_details(step: str, params: dict) -> dict:
     """What each step ran against, from the effective params."""
-    if step == "host_depletion":
-        return {"index": params.get("host_depletion_index"), "removes": params.get("host_depletion_index_description")}
+    if step == "reference_filter":
+        return {"mode": params.get("reference_filter_mode"), "index": params.get("reference_filter_index"),
+                "index_contents": params.get("reference_filter_index_description")}
     if step == "genome_kmer_based_calling":
         return {"database": params.get("sylph_database")}
     if step == "genome_mapping_based_calling":

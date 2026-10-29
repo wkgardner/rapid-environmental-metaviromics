@@ -12,8 +12,9 @@ VERSIONS = Path(__file__).parent / "fixtures" / "versions"
 
 EFFECTIVE_PARAMS = {
     "input": "/data/samplesheet.csv",
-    "host_depletion_index": "/refs/panhuman1_silva.k31w15.idx",
-    "host_depletion_index_description": "panhuman-1 + SILVA SSU/LSU rRNA",
+    "reference_filter_index": "/refs/panhuman1_silva.k31w15.idx",
+    "reference_filter_index_description": "panhuman-1 + SILVA SSU/LSU rRNA",
+    "reference_filter_mode": "deplete",
     "sylph_database": "/refs/vpd_3.2.4.k31c50.syldb",
     "esviritu_database": "/refs/esviritu_db_v3.2.4",
     "vpd_version": "3.2.4", "vpd_mask_version": "vector_only_v1", "taxdump_version": None,
@@ -48,9 +49,9 @@ def test_run_identity_and_references_are_recorded(tmp_path):
 def test_each_step_records_its_tool_version_and_what_it_ran_against(tmp_path):
     steps = write_metadata(tmp_path)["steps"]
 
-    assert steps["host_depletion"] == {
-        "tool": "deacon", "version": "0.18.0",
-        "index": "/refs/panhuman1_silva.k31w15.idx", "removes": "panhuman-1 + SILVA SSU/LSU rRNA",
+    assert steps["reference_filter"] == {
+        "tool": "deacon", "version": "0.18.0", "mode": "deplete",
+        "index": "/refs/panhuman1_silva.k31w15.idx", "index_contents": "panhuman-1 + SILVA SSU/LSU rRNA",
     }
     assert steps["adapter_trimming"] == {"tool": "bbmap", "version": "39.91"}
     assert steps["genome_kmer_based_calling"] == {"tool": "sylph", "version": "1.0.0", "database": "/refs/vpd_3.2.4.k31c50.syldb"}
