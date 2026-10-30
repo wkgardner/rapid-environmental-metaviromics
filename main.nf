@@ -30,13 +30,17 @@ workflow {
 }
 
 // Published layout (spec "Outputs"): every table is one TSV per sample in <table>/.
+// mode 'copy': Nextflow's default publishes symlinks into work/, which break when work/ is cleaned.
 output {
-    preprocessing_read_counts { path '01_preprocessing/preprocessing_read_counts' }
-    preprocessing_logs { path '01_preprocessing/logs' }
-    genome_kmer_based_calls { path '02_genome_kmer_based_calling/genome_kmer_based_calls' }
-    genome_mapping_based_calls { path '03_genome_mapping_based_calling/genome_mapping_based_calls' }
-    esviritu_reports { path '03_genome_mapping_based_calling/esviritu_reports' }
-    qc_report { path '04_qc_report' }
-    sample_status { path '05_run_summary/sample_status' }
-    run_metadata { path '05_run_summary' }
+    preprocessing_read_counts { path '01_preprocessing/preprocessing_read_counts'; mode 'copy' }
+    preprocessing_logs { path '01_preprocessing/logs'; mode 'copy' }
+    genome_kmer_based_calls { path '02_genome_kmer_based_calling/genome_kmer_based_calls'; mode 'copy' }
+    genome_mapping_based_calls { path '03_genome_mapping_based_calling/genome_mapping_based_calls'; mode 'copy' }
+    esviritu_reports {
+        path { meta, report_files -> "03_genome_mapping_based_calling/esviritu_reports/${meta.id}" }
+        mode 'copy'
+    }
+    qc_report { path '04_qc_report'; mode 'copy' }
+    sample_status { path '05_run_summary/sample_status'; mode 'copy' }
+    run_metadata { path '05_run_summary'; mode 'copy' }
 }

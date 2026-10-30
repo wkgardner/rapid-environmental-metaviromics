@@ -79,6 +79,19 @@ nextflow_pipeline {
             // One MultiQC report per run.
             assert path("${outputDir}/04_qc_report/rww_20261029_e2e.multiqc_report.html").exists()
 
+            // Results are real copies, not symlinks into work/, so cleaning work/ keeps them.
+            def published_symlinks = []
+            new File("${outputDir}").eachFileRecurse { published_file ->
+                if (java.nio.file.Files.isSymbolicLink(published_file.toPath())) published_symlinks << published_file.name
+            }
+            assert published_symlinks == []
+
+            // EsViritu's raw files land in one folder per sample, without its HTML report or the
+            // report's JavaScript folder.
+            def esviritu_folder = new File("${outputDir}/03_genome_mapping_based_calling/esviritu_reports/both_callers")
+            assert new File(esviritu_folder, 'both_callers.detected_virus.assembly_summary.tsv').isFile()
+            assert esviritu_folder.listFiles().findAll { report_file -> report_file.isDirectory() || report_file.name.endsWith('.html') } == []
+
             // run_metadata.yaml names the tool behind every step.
             def metadata = new org.yaml.snakeyaml.Yaml().load(path("${outputDir}/05_run_summary/rww_20261029_e2e.run_metadata.yaml").text)
             assert metadata.run_id == 'rww_20261029_e2e'

@@ -17,7 +17,8 @@ process ESVIRITU {
     tuple val(meta), path("${meta.id}.detected_virus.assembly_summary.tsv"), path("${meta.id}.detected_virus.info.tsv"), env('MAPPING_STATUS'), emit: tables, optional: true
     tuple val(meta), env('MAPPING_STATUS'), emit: status
     tuple val(meta), path("${meta.id}_esviritu.log"), emit: log, optional: true
-    path "esviritu_output/*", emit: reports, optional: true
+    // EsViritu's raw tables, consensus, log and params; not its HTML reports or their JavaScript folder.
+    tuple val(meta), path("${meta.id}*.{tsv,yaml,log,fasta,json}"), emit: reports, optional: true
     path 'versions.yml', topic: versions
 
     script:
@@ -45,11 +46,14 @@ process ESVIRITU {
     esviritu_exit_code=\$?
     set -e
 
+    # Raw files to publish, copied up out of esviritu_output/ so they publish flat per sample
+    # (EsViritu's HTML reports and their JavaScript folder stay behind).
+    for report_file in esviritu_output/*.tsv esviritu_output/*.yaml esviritu_output/*.log esviritu_output/*.fasta esviritu_output/*.json; do
+        if [ -f "\$report_file" ]; then cp "\$report_file" .; fi
+    done
     log_file=esviritu_output/${meta.id}_esviritu.log
-    [ -f "\$log_file" ] && cp "\$log_file" ${meta.id}_esviritu.log
     if [ -f esviritu_output/${meta.id}.detected_virus.assembly_summary.tsv ] && [ -f esviritu_output/${meta.id}.detected_virus.info.tsv ]; then
         MAPPING_STATUS=ok
-        cp esviritu_output/${meta.id}.detected_virus.assembly_summary.tsv esviritu_output/${meta.id}.detected_virus.info.tsv .
     elif [ "\$esviritu_exit_code" -eq 1 ] && grep -q 'No reads aligned' "\$log_file" 2>/dev/null; then
         MAPPING_STATUS=no_detections
     else
