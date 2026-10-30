@@ -53,6 +53,14 @@ See `PLAN.md` for the build order. Update after every step.
 3. Tower: the user's `tower` block is in nextflow.config, uncommitted (do not commit it until the
    user confirms the token is not in the file).
 
+## After the batch2 run finishes (user chose to wait, 2026-10-30)
+
+- EsViritu reserves 16 CPUs but averages ~3.6 (355–370% in trace) and peaks under 14 GB, so it
+  runs one sample at a time and blocks the 1-CPU table builders. Set ESVIRITU to 4 CPUs / 32 GB in
+  `conf/shared_host.config` so four run at once under the 16-CPU / 160 GB cap.
+- Adapter trimming is 25–55 min per 8-lane sample. Benchmark (`.scratch/fastp_vs_bbduk_trim/`):
+  fastp overlap-only ~10% faster wall, 1/3 the CPU, same bases removed. Try pigz for BBDuk first.
+
 ## Next action
 
 Read the smoke-run timings; run on real samples once the Deacon union index is ready.
