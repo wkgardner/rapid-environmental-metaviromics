@@ -1,0 +1,90 @@
+%% Pipeline diagram for the README. After editing, re-render from the repo root:
+%%   pixi exec -c conda-forge -c bioconda --spec 'nf-metro==2.0.0' -- nf-metro render docs/metro_map.mmd -o docs/metro_map.svg
+%%metro style: nfcore
+%%metro legend: br
+%%metro line_spread: bundle
+%%metro font_scale: 1.35
+%%metro x_spacing: 105
+%%metro section_x_gap: 36
+%%metro section_y_gap: 36
+
+%%metro grid: inputs, read_qc | 0,0
+%%metro grid: calling | 0,1
+%%metro grid: reporting | 1,1
+
+%%metro line: kmer | Genome k-mer-based calling | #0570b0
+%%metro line: mapping | Genome mapping-based calling | #2db572
+%%metro line: qc | Read QC reporting | #f5c542 | dashed
+
+%%metro file: samplesheet | CSV | Samplesheet
+%%metro file: kmer_calls | TSV | k-mer calls
+%%metro file: mapping_calls | TSV | Mapping calls
+%%metro file: read_counts_table | TSV | Read counts
+%%metro file: multiqc_report | HTML | MultiQC report
+
+%% Station -> Nextflow process mapping, for the live overlay in `nf-metro serve`.
+%%metro process_scope: RAPID_WW
+%%metro process: resolve_inputs | RESOLVE_READ_INPUTS
+%%metro process: reference_filter | REFERENCE_FILTER
+%%metro process: reference_filter | REFERENCE_FILTER_SRA
+%%metro process: trim_adapters | BBDUK_TRIM_ADAPTERS
+%%metro process: dedup | CLUMPIFY_DEDUP
+%%metro process: filter_reads | BBDUK_FILTER_READS
+%%metro process: sylph_sketch | SYLPH_SKETCH_READS
+%%metro process: sylph_profile | SYLPH_PROFILE
+%%metro process: build_kmer_calls | BUILD_GENOME_KMER_BASED_CALLS
+%%metro process: esviritu | ESVIRITU
+%%metro process: build_mapping_calls | BUILD_GENOME_MAPPING_BASED_CALLS
+%%metro process: build_read_counts | BUILD_PREPROCESSING_READ_COUNTS
+%%metro process: multiqc | MULTIQC
+
+graph LR
+    subgraph inputs [Inputs]
+        samplesheet[ ]
+        resolve_inputs["Resolve inputs\n(FASTQ or SRA)"]
+        reference_filter["Reference filter\n(Deacon)"]
+
+        samplesheet -->|kmer,mapping,qc| resolve_inputs
+        resolve_inputs -->|kmer,mapping,qc| reference_filter
+    end
+
+    subgraph read_qc [Read QC]
+        trim_adapters["Trim adapters\n(BBDuk, Illumina only)"]
+        dedup["Deduplicate\n(Clumpify)"]
+        filter_reads["Filter reads\n(BBDuk)"]
+
+        trim_adapters -->|kmer,mapping,qc| dedup
+        dedup -->|kmer,mapping,qc| filter_reads
+    end
+
+    subgraph calling [Viral calling against VPD]
+        sylph_sketch["Sketch reads\n(sylph)"]
+        sylph_profile["Profile\n(sylph)"]
+        build_kmer_calls["Build k-mer\ncall table"]
+        kmer_calls[ ]
+        esviritu["Map reads\n(EsViritu)"]
+        build_mapping_calls["Build mapping\ncall table"]
+        mapping_calls[ ]
+
+        sylph_sketch -->|kmer| sylph_profile
+        sylph_profile -->|kmer| build_kmer_calls
+        build_kmer_calls -->|kmer| kmer_calls
+        esviritu -->|mapping| build_mapping_calls
+        build_mapping_calls -->|mapping| mapping_calls
+    end
+
+    subgraph reporting [Read QC reporting]
+        build_read_counts["Build read\ncount table"]
+        read_counts_table[ ]
+        multiqc["Run report\n(MultiQC)"]
+        multiqc_report[ ]
+
+        build_read_counts -->|qc| read_counts_table
+        build_read_counts -->|qc| multiqc
+        multiqc -->|qc| multiqc_report
+    end
+
+    reference_filter -->|kmer,mapping,qc| trim_adapters
+    filter_reads -->|kmer| sylph_sketch
+    filter_reads -->|mapping| esviritu
+    filter_reads -->|qc| build_read_counts
