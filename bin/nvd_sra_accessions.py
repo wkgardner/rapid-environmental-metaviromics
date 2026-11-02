@@ -1,4 +1,3 @@
-# Lifted unchanged (apart from imports) from NVD 61a22a1, lib/py_nvd/sra_accessions.py.
 """Small local checks for SRA accession-shaped strings."""
 
 from __future__ import annotations

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Lifted from NVD 61a22a1, bin/stream_fastqs_to_deacon.py, imports pointed at bin/ copies.
 """Stream ordered FASTQ bundles into Deacon through named pipes."""
 
 from __future__ import annotations

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Lifted from NVD 61a22a1, bin/resolve_read_inputs.py, imports pointed at bin/ copies.
 """Resolve NVD samplesheet read declarations into a canonical JSONL manifest."""
 
 from __future__ import annotations

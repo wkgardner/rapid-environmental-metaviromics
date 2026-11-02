@@ -1,4 +1,3 @@
-# Lifted unchanged (apart from imports) from NVD 61a22a1, lib/py_nvd/read_inputs.py.
 """Resolve NVD samplesheet read declarations into a canonical JSONL manifest."""
 
 from __future__ import annotations
