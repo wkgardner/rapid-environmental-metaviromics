@@ -4,9 +4,7 @@
 
 # Top-level files
 !/.gitignore
-!/GLOSSARY.md
-!/PLAN.md
-!/PROGRESS.md
+!/README.md
 !/main.nf
 !/nextflow.config
 !/nf-test.config
