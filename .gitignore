@@ -1,0 +1,38 @@
+# Whitelist: ignore everything, then exempt what belongs in the repo.
+# A folder needs two lines: one to exempt the folder, one for what is inside it.
+*
+
+# Top-level files
+!/.gitignore
+!/GLOSSARY.md
+!/PLAN.md
+!/PROGRESS.md
+!/main.nf
+!/nextflow.config
+!/nf-test.config
+!/pixi.lock
+!/pixi.toml
+
+# Source folders
+!/assets/
+!/assets/**
+!/bin/
+!/bin/**
+!/conf/
+!/conf/**
+!/docs/
+!/docs/**
+!/modules/
+!/modules/**
+!/scripts/
+!/scripts/**
+!/tests/
+!/tests/**
+!/workflows/
+!/workflows/**
+
+# Re-ignored inside exempted folders (later lines win)
+__pycache__/
+*.pyc
+# Written by a local run and holds absolute paths.
+/tests/data/generated/samplesheet.csv

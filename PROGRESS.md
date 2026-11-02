@@ -64,3 +64,8 @@ See `PLAN.md` for the build order. Update after every step.
 ## Next action
 
 Read the smoke-run timings; run on real samples once the Deacon union index is ready.
+
+## History rewrite (2026-11-02)
+
+History was rewritten to remove personal info, so every commit hash changed. Pending: the user
+force-pushes `main`, then prunes the old objects and deletes the local backup bundle.
