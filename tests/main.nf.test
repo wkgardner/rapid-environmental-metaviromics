@@ -88,7 +88,7 @@ nextflow_pipeline {
 
             // EsViritu's raw files land in one folder per sample, without its HTML report or the
             // report's JavaScript folder.
-            def esviritu_folder = new File("${outputDir}/03_genome_mapping_based_calling/esviritu_reports/both_callers")
+            def esviritu_folder = new File("${outputDir}/03_genome_mapping_based_calling/esviritu_reports/both_callers/esviritu_output")
             assert new File(esviritu_folder, 'both_callers.detected_virus.assembly_summary.tsv').isFile()
             assert esviritu_folder.listFiles().findAll { report_file -> report_file.isDirectory() || report_file.name.endsWith('.html') } == []
 
