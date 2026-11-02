@@ -1,6 +1,6 @@
-# rapid-ww-metagenomics
+# Rapid Environmental MetaViromics (REMV)
 
-A Nextflow pipeline for weekly viral surveillance from wastewater sequencing. It cleans the reads, then calls viruses two ways against the same reference database, EsViritu's Virus Pathogen Database (VPD):
+REMV is a Nextflow pipeline for weekly viral surveillance from wastewater sequencing. It cleans the reads, then calls viruses two ways against the same reference database, EsViritu's Virus Pathogen Database (VPD):
 
 - **Genome k-mer-based calling** (sylph) is fast and tuned for a very low false-positive rate.
 - **Genome mapping-based calling** (EsViritu) maps every read, so it is slower but finds more low-abundance viruses.
