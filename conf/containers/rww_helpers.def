@@ -1,0 +1,14 @@
+# Image for the steps no single BioContainers image covers: the Deacon read filter (Deacon plus
+# Python and jq) and the bin/ table builders (Python, polars, pyyaml). Versions match pixi.toml.
+# procps-ng provides ps: without it the Nextflow task wrapper exits 1 before the script runs.
+# Build without root:
+#   apptainer build --fakeroot rww_helpers.sif conf/containers/rww_helpers.def
+Bootstrap: docker
+From: mambaorg/micromamba:2.3.3
+
+%post
+    micromamba create --yes --prefix /opt/rww --channel conda-forge --channel bioconda \
+        python=3.12 polars=2.1.0 pyyaml=6.0.3 jq=1.8.2 deacon=0.18.0 sracha=0.8.0 procps-ng
+
+%environment
+    export PATH=/opt/rww/bin:$PATH
