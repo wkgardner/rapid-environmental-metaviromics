@@ -164,6 +164,7 @@ workflow RAPID_WW {
     genome_kmer_based_calls = ch_kmer_calls
     genome_mapping_based_calls = ch_mapping_calls
     esviritu_reports = params.skip_genome_mapping_based_calling ? channel.empty() : ESVIRITU.out.reports
+    esviritu_intermediates = params.skip_genome_mapping_based_calling ? channel.empty() : ESVIRITU.out.intermediates
     sample_status = WRITE_SAMPLE_STATUS.out.table
     qc_report = MULTIQC.out.report.mix(MULTIQC.out.data)
 }

@@ -24,6 +24,7 @@ workflow {
     genome_kmer_based_calls = RAPID_WW.out.genome_kmer_based_calls
     genome_mapping_based_calls = RAPID_WW.out.genome_mapping_based_calls
     esviritu_reports = RAPID_WW.out.esviritu_reports
+    esviritu_intermediates = RAPID_WW.out.esviritu_intermediates
     sample_status = RAPID_WW.out.sample_status
     qc_report = RAPID_WW.out.qc_report
     run_metadata = WRITE_RUN_METADATA.out.metadata
@@ -38,6 +39,8 @@ output {
     genome_mapping_based_calls { path '03_genome_mapping_based_calling/genome_mapping_based_calls' }
     // EsViritu's raw files land in <sample>/esviritu_output/ (the folder EsViritu writes them to).
     esviritu_reports { path { meta, report_files -> "03_genome_mapping_based_calling/esviritu_reports/${meta.id}" } }
+    // With esviritu_keep on, the temp folder sits beside the raw files: <sample>/esviritu_output/<sample>_temp/.
+    esviritu_intermediates { path { meta, temp_folder -> "03_genome_mapping_based_calling/esviritu_reports/${meta.id}" } }
     qc_report { path '04_qc_report' }
     sample_status { path '05_run_summary/sample_status' }
     run_metadata { path '05_run_summary' }

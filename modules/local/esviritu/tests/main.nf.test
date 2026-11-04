@@ -35,6 +35,33 @@ nextflow_process {
             def assemblies = path(process.out.tables[0][1]).readLines().drop(1).collect { it.split('\t')[2] } as Set
             assert assemblies == ['GCF_000859645.1', 'GCF_001461485.1', 'acc:ON897592.1',
                                   'set:43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA/S2-2__Sadwavirus_alphananas'] as Set
+            // esviritu_keep is on by default, so EsViritu's alignments come back as an output.
+            def kept_folder = new File(process.out.intermediates[0][1])
+            assert kept_folder.name == 'both_callers_temp'
+            assert kept_folder.listFiles()*.name.contains('both_callers.third.filt.sorted.bam')
+        }
+    }
+
+    test("esviritu_keep = false: no intermediate files come back, and the sample is still called") {
+        when {
+            params {
+                esviritu_keep = false
+            }
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'mapping_only', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                    file("\${reads}/mapping_only_R1.fastq.gz"),
+                ])
+                input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.status[0][1] == 'ok'
+            assert process.out.intermediates.size() == 0
         }
     }
 

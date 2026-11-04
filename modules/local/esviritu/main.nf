@@ -19,11 +19,15 @@ process ESVIRITU {
     tuple val(meta), path("${meta.id}_esviritu.log"), emit: log, optional: true
     // EsViritu's raw tables, consensus, log and params; not its HTML reports or their JavaScript folder.
     tuple val(meta), path("esviritu_output/*.{tsv,yaml,log,fasta,json}"), emit: reports, optional: true
+    // EsViritu's temp folder, when esviritu_keep is on.
+    tuple val(meta), path("esviritu_output/${meta.id}_temp"), emit: intermediates, optional: true
     path 'versions.yml', topic: versions
 
     script:
     def read_format = meta.read_mode == 'paired' ? 'interleaved' : 'unpaired'
     def preset = meta.platform == 'illumina' ? params.esviritu_minimap2_preset_illumina : params.esviritu_minimap2_preset_nanopore
+    // Kept files must stay in the task folder to be published; otherwise they can use fast local scratch.
+    def temp_folder = params.esviritu_keep ? "esviritu_output/${meta.id}_temp" : '$TMPDIR/esviritu_temp'
     """
     set +e
     EsViritu \\
@@ -36,8 +40,8 @@ process ESVIRITU {
         --qual False \\
         --filter_seqs False \\
         --dedup ${params.esviritu_dedup ? 'True' : 'False'} \\
-        --keep False \\
-        --temp "\$TMPDIR/esviritu_temp" \\
+        --keep ${params.esviritu_keep ? 'True' : 'False'} \\
+        --temp "${temp_folder}" \\
         --minimap2-preset ${preset} \\
         --minimap2-K ${params.esviritu_minimap2_batch} \\
         --min-align-length ${params.esviritu_min_align_length} \\

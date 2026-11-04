@@ -85,7 +85,7 @@ If your filter index differs from the default, set `reference_filter_index_descr
 │   └── genome_kmer_based_calls/
 ├── 03_genome_mapping_based_calling/
 │   ├── genome_mapping_based_calls/
-│   └── esviritu_reports/<sample_id>/esviritu_output/
+│   └── esviritu_reports/<sample_id>/esviritu_output/   (and <sample_id>_temp/ with esviritu_keep)
 ├── 04_qc_report/                      <run_id>.multiqc_report.html
 └── 05_run_summary/
     ├── sample_status/
@@ -123,6 +123,7 @@ Every tool setting has a default in [nextflow.config](nextflow.config) and can b
 | `skip_read_filtering` | `false` | Skips the BBDuk quality, length and low-complexity filter |
 | `skip_genome_kmer_based_calling` | `false` | Skips sylph; `sylph_database` is then not needed (`vpd_lookup` still is) |
 | `skip_genome_mapping_based_calling` | `false` | Skips EsViritu; `esviritu_database` is then not needed (`vpd_lookup` still is) |
+| `esviritu_keep` | `true` | Publishes EsViritu's temp folder, including its BAM files, beside its raw files. These add up across a run; set `false` to save space |
 | `normalization_genus` | `Tobamovirus` | Denominator for `normalized_read_ratio` |
 
 The sylph settings (k31, c50, minimum ANI 90) are the v1 defaults. The sylph database must be built at the same k-mer length and compression as the sample sketches.

@@ -87,10 +87,12 @@ nextflow_pipeline {
             assert published_symlinks == []
 
             // EsViritu's raw files land in one folder per sample, without its HTML report or the
-            // report's JavaScript folder.
+            // report's JavaScript folder. Its alignments sit in the sample's temp folder (esviritu_keep).
             def esviritu_folder = new File("${outputDir}/03_genome_mapping_based_calling/esviritu_reports/both_callers/esviritu_output")
             assert new File(esviritu_folder, 'both_callers.detected_virus.assembly_summary.tsv').isFile()
-            assert esviritu_folder.listFiles().findAll { report_file -> report_file.isDirectory() || report_file.name.endsWith('.html') } == []
+            assert esviritu_folder.listFiles().findAll { report_file -> report_file.name.endsWith('.html') } == []
+            assert esviritu_folder.listFiles().findAll { report_file -> report_file.isDirectory() }*.name == ['both_callers_temp']
+            assert new File(esviritu_folder, 'both_callers_temp/both_callers.third.filt.sorted.bam').isFile()
 
             // run_metadata.yaml names the tool behind every step.
             def metadata = new org.yaml.snakeyaml.Yaml().load(path("${outputDir}/05_run_summary/rww_20261029_e2e.run_metadata.yaml").text)
