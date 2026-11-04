@@ -3,6 +3,8 @@ title: "Rapid wastewater metagenomics: read QC"
 # BBTools 39.x logs "Executing bbduk.BBDukS" on line 3 (after the java command line), where
 # MultiQC 1.35 looks for "Executing jgi.BBDuk" in the first 2 lines.
 sp:
+  preprocessing_read_counts:
+    fn: "preprocessing_read_counts_mqc.tsv"
   bbduk:
     contents: "Executing bbduk.BBDuk"
     num_lines: 5
@@ -12,3 +14,43 @@ fn_clean_exts:
   - ".bbduk.log"
   - ".clumpify.log"
   - ".deacon.json"
+
+# General Statistics: one row per sample, with the step in each column name. The Deacon and BBDuk
+# modules would add a row per log file instead, so they keep only their own report sections.
+module_order:
+  - deacon:
+      generalstats: false
+  - bbduk:
+      generalstats: false
+custom_data:
+  preprocessing_read_counts:
+    plot_type: generalstats
+    headers:
+      raw_reads:
+        title: "Raw reads"
+        description: "Reads in the input FASTQ files"
+        shared_key: read_count
+      reads_removed_by_reference_filter:
+        title: "Reference filter: removed"
+        description: "Reads removed by the reference filter"
+        shared_key: read_count
+      qc_adapter_trimmed_reads:
+        title: "Adapter trimming: trimmed"
+        description: "Reads that had adapter bases trimmed; the reads stay in the run"
+        shared_key: read_count
+      qc_duplicate_reads_removed:
+        title: "Dedup: removed"
+        description: "Exact-duplicate reads removed"
+        shared_key: read_count
+      qc_low_quality_reads_removed:
+        title: "Read filtering: low quality removed"
+        description: "Reads removed for low quality or short length"
+        shared_key: read_count
+      qc_low_complexity_reads_removed:
+        title: "Read filtering: low complexity removed"
+        description: "Reads removed for low complexity"
+        shared_key: read_count
+      reads_post_qc:
+        title: "Reads after QC"
+        description: "Reads passed to the virus callers"
+        shared_key: read_count

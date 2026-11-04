@@ -79,6 +79,16 @@ nextflow_pipeline {
             // One MultiQC report per run.
             assert path("${outputDir}/04_qc_report/rww_20261029_e2e.multiqc_report.html").exists()
 
+            // General Statistics has one row per sample, and each column names its step. MultiQC
+            // stores read counts in millions.
+            def general_stats = read_tsv('04_qc_report/rww_20261029_e2e.multiqc_report_data/multiqc_general_stats.txt')
+            assert general_stats*.Sample as Set == ['both_callers', 'kmer_only', 'mapping_only', 'neither', 'host_only'] as Set
+            def both_callers_row = general_stats.find { it.Sample == 'both_callers' }
+            def column_for_step = { step -> both_callers_row.find { column, value -> column.contains(step) }?.value }
+            assert Math.abs((column_for_step('reads_removed_by_reference_filter') as double) - 600 / 1e6) < 1e-9
+            assert Math.abs((column_for_step('qc_duplicate_reads_removed') as double) - 120 / 1e6) < 1e-9
+            assert !both_callers_row.keySet().any { column -> column.startsWith('bbduk') || column.startsWith('deacon') }
+
             // Results are real copies, not symlinks into work/, so cleaning work/ keeps them.
             def published_symlinks = []
             new File("${outputDir}").eachFileRecurse { published_file ->
