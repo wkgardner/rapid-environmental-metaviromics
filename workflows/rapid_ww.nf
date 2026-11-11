@@ -2,6 +2,7 @@
 // live in the bin/ Python scripts the processes run.
 
 include { RESOLVE_READ_INPUTS              } from '../modules/local/resolve_read_inputs'
+include { DECODE_CRAM_READS                } from '../modules/local/decode_cram_reads'
 include { REFERENCE_FILTER                 } from '../modules/local/reference_filter'
 include { REFERENCE_FILTER_SRA             } from '../modules/local/reference_filter_sra'
 include { PREPARE_READS                    } from '../modules/local/prepare_reads'
@@ -41,9 +42,10 @@ workflow RAPID_WW {
         .map { line -> new groovy.json.JsonSlurper().parseText(line) }
         .branch { record ->
             sra: record.source == 'sra'
+            cram: record.source == 'cram'
             local: true
         }
-    ch_local_reads = ch_resolved.local.map { record ->
+    ch_fastq_reads = ch_resolved.local.map { record ->
         def is_paired = record.read_structure == 'paired'
         def read_paths = is_paired ? record.r1 + record.r2 : record.reads
         def meta = [id: record.sample_id, platform: record.platform, read_mode: is_paired ? 'paired' : 'single',
@@ -53,6 +55,19 @@ workflow RAPID_WW {
     ch_sra_runs = ch_resolved.sra.map { record ->
         [id: record.sample_id, platform: record.platform, srr: record.srr.toUpperCase()]
     }
+
+    // Archived uCRAMs decode back to FASTQ first, then follow the same path as local FASTQ.
+    // DECODE_CRAM_READS reports the pairing it found, because the samplesheet cannot say.
+    // Its output is one file (single) or R1 then R2 (paired), so r1_count is always 1.
+    ch_cram_reads = DECODE_CRAM_READS(
+        ch_resolved.cram.map { record ->
+            tuple([id: record.sample_id, platform: record.platform], file(record.reads[0]))
+        }
+    ).reads.map { meta, decoded_reads, read_mode ->
+        tuple(meta + [read_mode: read_mode, r1_count: 1],
+              decoded_reads instanceof List ? decoded_reads : [decoded_reads])
+    }
+    ch_local_reads = ch_fastq_reads.mix(ch_cram_reads)
 
     // ---- Reference filter: one Deacon pass (deplete or extract); pairs come out interleaved ----
     // --skip_reference_filter skips it entirely: PREPARE_READS / FETCH_SRA_READS only merge lanes

@@ -151,4 +151,50 @@ nextflow_pipeline {
             assert metadata.steps.reference_filter == [skipped: true]
         }
     }
+
+    test("an archived uCRAM gives the same counts and calls as the sample's FASTQ pair") {
+        setup {
+            // What a retrospective run sees once cold storage holds only the CRAM.
+            def reads = "${projectDir}/tests/data/generated/reads"
+            def samplesheet = new File("${launchDir}/.nf-test/inputs/e2e_cram_samplesheet.csv")
+            samplesheet.parentFile.mkdirs()
+            samplesheet.text = "sample_id,srr,platform,fastq1,fastq2,fastq1_glob,fastq2_glob\n" +
+                "both_callers,,illumina,${reads}/both_callers.unaligned.cram,,,\n" +
+                "kmer_only_single,,ont,${reads}/kmer_only_single.unaligned.cram,,,\n"
+        }
+        when {
+            params {
+                def references = "${projectDir}/tests/data/generated/references"
+                input = "${launchDir}/.nf-test/inputs/e2e_cram_samplesheet.csv"
+                outdir = "${outputDir}"
+                run_id = 'rww_20261029_cram'
+                reference_filter_index = "${references}/host.k31w15.idx"
+                sylph_database = "${references}/vpd.syldb"
+                vpd_lookup = "${references}/vpd_lookup.tsv"
+                esviritu_database = "${references}/esviritu_db"
+                vpd_version = '3.2.4-subset'
+            }
+        }
+        then {
+            assert workflow.success
+            def task_names = workflow.trace.tasks()*.name
+            assert task_names.any { it.contains('DECODE_CRAM_READS') }
+
+            def counts_for = { sample ->
+                def lines = path("${outputDir}/01_preprocessing/preprocessing_read_counts/rww_20261029_cram_${sample}.preprocessing_read_counts.tsv").readLines()
+                [lines[0].split('\t', -1) as List, lines[1].split('\t', -1) as List].transpose().collectEntries()
+            }
+            // The CRAM holds the same 2,200 pairs the FASTQ test reads as 4,400 reads.
+            assert counts_for('both_callers').raw_reads == '4400'
+            // The single-end CRAM's 400 reads are decoded without being mistaken for a pair.
+            assert counts_for('kmer_only_single').raw_reads == '400'
+
+            // The decode is lossless, so both_callers still reaches both callers.
+            def status_of = { sample, step ->
+                path("${outputDir}/05_run_summary/sample_status/rww_20261029_cram_${sample}_${step}.sample_status.tsv").readLines()[1].split('\t', -1)[3]
+            }
+            assert status_of('both_callers', 'genome_kmer_based_calling') == 'ok'
+            assert status_of('both_callers', 'genome_mapping_based_calling') == 'ok'
+        }
+    }
 }

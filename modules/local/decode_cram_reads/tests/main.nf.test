@@ -1,0 +1,63 @@
+nextflow_process {
+
+    name "Test DECODE_CRAM_READS"
+    script "../main.nf"
+    process "DECODE_CRAM_READS"
+
+    test("a paired uCRAM decodes to R1 and R2 with the archived read names") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'both_callers', platform: 'illumina'],
+                    file("\${reads}/both_callers.unaligned.cram"),
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][2] == 'paired'
+
+            // both_callers is 2,200 pairs. R1 sorts before R2, so r1_count = 1 holds downstream.
+            def decoded = process.out.reads[0][1]
+            assert decoded.size() == 2
+            assert decoded[0].endsWith('both_callers.cram_reads_R1.fastq.gz')
+            assert decoded[1].endsWith('both_callers.cram_reads_R2.fastq.gz')
+
+            def r1_names = path(decoded[0]).linesGzip.findAll { it.startsWith('@') }
+            def r2_names = path(decoded[1]).linesGzip.findAll { it.startsWith('@') }
+            assert r1_names.size() == 2200
+            assert r2_names.size() == 2200
+
+            // -n keeps the stored name, so mates match exactly instead of gaining /1 and /2.
+            assert r1_names[0] == r2_names[0]
+            assert !r1_names[0].endsWith('/1')
+        }
+    }
+
+    test("a single-end uCRAM decodes to one FASTQ") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'kmer_only_single', platform: 'ont'],
+                    file("\${reads}/kmer_only_single.unaligned.cram"),
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][2] == 'single'
+
+            def decoded = process.out.reads[0][1]
+            assert decoded instanceof String || decoded.size() == 1
+            def single_fastq = decoded instanceof String ? decoded : decoded[0]
+            assert single_fastq.endsWith('kmer_only_single.cram_reads.fastq.gz')
+            assert path(single_fastq).linesGzip.findAll { it.startsWith('@') }.size() == 400
+        }
+    }
+}

@@ -36,11 +36,16 @@ site_a_week44,,illumina,/data/site_a_R1.fastq.gz,/data/site_a_R2.fastq.gz,,
 site_b_week44,,illumina,,,/data/site_b_L*_R1_001.fastq.gz,/data/site_b_L*_R2_001.fastq.gz
 site_c_week44,,ont,/data/site_c.fastq.gz,,,
 public_sample,SRR33296246,illumina,,,,
+archived_week12,,illumina,/archive/archived_week12.unaligned.cram,,,
 ```
 
 - `platform` is required: `illumina` or `ont`.
 - FASTQ paths and glob patterns must be absolute.
 - Use the glob columns for samples split across lanes.
+- **Unaligned CRAM** (for retrospective runs off archived data) goes in `fastq1`, recognised by
+  its `.cram` suffix. One CRAM holds every lane and both mates of a sample, so leave `fastq2` and
+  both glob columns empty. The pipeline decodes it with `samtools fastq` before the reference
+  filter, reading the pairing from the records' flags and keeping read names as archived.
 
 To build a samplesheet from a folder of bcl2fastq or BCL Convert files:
 

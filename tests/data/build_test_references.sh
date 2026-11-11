@@ -5,6 +5,16 @@ set -euo pipefail
 
 generated_directory="tests/data/generated"
 references_directory="${generated_directory}/references"
+reads_directory="${generated_directory}/reads"
+
+# Archived unaligned CRAMs, the shape cold storage holds: one file per sample, no reference.
+# both_callers covers the paired case. The single-end one drops the /1 read-name suffix first,
+# because samtools import reads that suffix as a pair marker and would flag the reads as paired.
+samtools import -1 "${reads_directory}/both_callers_R1.fastq.gz" -2 "${reads_directory}/both_callers_R2.fastq.gz" \
+    -O cram,version=3.1,archive,level=9 -o "${reads_directory}/both_callers.unaligned.cram"
+gzip -dc "${reads_directory}/kmer_only_R1.fastq.gz" \
+    | awk 'NR % 4 == 1 { sub(/\/1$/, "") } { print }' \
+    | samtools import -0 - -O cram,version=3.1,archive,level=9 -o "${reads_directory}/kmer_only_single.unaligned.cram"
 
 # Host depletion index: the synthetic host at the pipeline's k31/w15.
 deacon index build -k 31 -w 15 --threads 2 --quiet \
