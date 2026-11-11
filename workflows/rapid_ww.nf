@@ -2,7 +2,8 @@
 // live in the bin/ Python scripts the processes run.
 
 include { RESOLVE_READ_INPUTS              } from '../modules/local/resolve_read_inputs'
-include { DECODE_CRAM_READS                } from '../modules/local/decode_cram_reads'
+include { REFERENCE_FILTER_CRAM            } from '../modules/local/reference_filter_cram'
+include { PREPARE_CRAM_READS               } from '../modules/local/prepare_cram_reads'
 include { REFERENCE_FILTER                 } from '../modules/local/reference_filter'
 include { REFERENCE_FILTER_SRA             } from '../modules/local/reference_filter_sra'
 include { PREPARE_READS                    } from '../modules/local/prepare_reads'
@@ -45,7 +46,7 @@ workflow RAPID_WW {
             cram: record.source == 'cram'
             local: true
         }
-    ch_fastq_reads = ch_resolved.local.map { record ->
+    ch_local_reads = ch_resolved.local.map { record ->
         def is_paired = record.read_structure == 'paired'
         def read_paths = is_paired ? record.r1 + record.r2 : record.reads
         def meta = [id: record.sample_id, platform: record.platform, read_mode: is_paired ? 'paired' : 'single',
@@ -55,26 +56,21 @@ workflow RAPID_WW {
     ch_sra_runs = ch_resolved.sra.map { record ->
         [id: record.sample_id, platform: record.platform, srr: record.srr.toUpperCase()]
     }
-
-    // Archived uCRAMs decode back to FASTQ first, then follow the same path as local FASTQ.
-    // DECODE_CRAM_READS reports the pairing it found, because the samplesheet cannot say.
-    // Its output is one file (single) or R1 then R2 (paired), so r1_count is always 1.
-    ch_cram_reads = DECODE_CRAM_READS(
-        ch_resolved.cram.map { record ->
-            tuple([id: record.sample_id, platform: record.platform], file(record.reads[0]))
-        }
-    ).reads.map { meta, decoded_reads, read_mode ->
-        tuple(meta + [read_mode: read_mode, r1_count: 1],
-              decoded_reads instanceof List ? decoded_reads : [decoded_reads])
+    // Archived uCRAMs are decoded straight into the next step, never onto disk, so they get
+    // their own processes like SRA runs do. Both report the layout they found, because a CRAM
+    // holds every lane and both mates in one file and the samplesheet cannot say which.
+    ch_cram_files = ch_resolved.cram.map { record ->
+        tuple([id: record.sample_id, platform: record.platform], file(record.reads[0]))
     }
-    ch_local_reads = ch_fastq_reads.mix(ch_cram_reads)
 
     // ---- Reference filter: one Deacon pass (deplete or extract); pairs come out interleaved ----
-    // --skip_reference_filter skips it entirely: PREPARE_READS / FETCH_SRA_READS only merge lanes
-    // and interleave pairs, and the read count after the filter is unknown (null), not guessed.
+    // --skip_reference_filter skips it entirely: PREPARE_READS / FETCH_SRA_READS / PREPARE_CRAM_READS
+    // only merge lanes and interleave pairs, and the read count after the filter is unknown
+    // (null), not guessed.
     if (params.skip_reference_filter) {
         ch_filtered = PREPARE_READS(ch_local_reads).reads
             .mix(FETCH_SRA_READS(ch_sra_runs).reads.map { meta, reads, read_mode -> tuple(meta + [read_mode: read_mode], reads) })
+            .mix(PREPARE_CRAM_READS(ch_cram_files).reads.map { meta, reads, read_mode -> tuple(meta + [read_mode: read_mode], reads) })
             .map { meta, reads -> tuple(meta + [reads_post_reference_filter: null], reads) }
         ch_reference_filter_summaries = channel.empty()
     } else {
@@ -82,8 +78,11 @@ workflow RAPID_WW {
         ch_filtered = REFERENCE_FILTER(ch_local_reads, filter_index, params.reference_filter_mode).reads
             .mix(REFERENCE_FILTER_SRA(ch_sra_runs.map { meta -> tuple(meta, filter_index) }, params.reference_filter_mode).reads
                 .map { meta, reads, read_count, read_mode -> tuple(meta + [read_mode: read_mode], reads, read_count) })
+            .mix(REFERENCE_FILTER_CRAM(ch_cram_files.map { meta, cram -> tuple(meta, cram, filter_index) }, params.reference_filter_mode).reads
+                .map { meta, reads, read_count, read_mode -> tuple(meta + [read_mode: read_mode], reads, read_count) })
             .map { meta, reads, read_count -> tuple(meta + [reads_post_reference_filter: read_count as long], reads) }
-        ch_reference_filter_summaries = REFERENCE_FILTER.out.summary.mix(REFERENCE_FILTER_SRA.out.summary)
+        ch_reference_filter_summaries = REFERENCE_FILTER.out.summary
+            .mix(REFERENCE_FILTER_SRA.out.summary, REFERENCE_FILTER_CRAM.out.summary)
     }
     ch_depleted = ch_filtered.branch { meta, reads ->
         has_reads: meta.reads_post_reference_filter == null || meta.reads_post_reference_filter > 0

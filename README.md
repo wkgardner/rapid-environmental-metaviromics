@@ -44,8 +44,9 @@ archived_week12,,illumina,/archive/archived_week12.unaligned.cram,,,
 - Use the glob columns for samples split across lanes.
 - **Unaligned CRAM** (for retrospective runs off archived data) goes in `fastq1`, recognised by
   its `.cram` suffix. One CRAM holds every lane and both mates of a sample, so leave `fastq2` and
-  both glob columns empty. The pipeline decodes it with `samtools fastq` before the reference
-  filter, reading the pairing from the records' flags and keeping read names as archived.
+  both glob columns empty. `samtools fastq` is streamed straight into the reference filter, as
+  SRA runs are, so the expanded FASTQ never lands on disk. The pairing is read from the records'
+  flags, since the samplesheet cannot say.
 
 To build a samplesheet from a folder of bcl2fastq or BCL Convert files:
 

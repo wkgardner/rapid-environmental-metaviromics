@@ -1,0 +1,61 @@
+nextflow_process {
+
+    name "Test REFERENCE_FILTER_CRAM"
+    script "../main.nf"
+    process "REFERENCE_FILTER_CRAM"
+
+    test("a paired uCRAM streams through Deacon and comes out interleaved") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'both_callers', platform: 'illumina'],
+                    file("\${reads}/both_callers.unaligned.cram"),
+                    file("${projectDir}/tests/data/generated/references/host.k31w15.idx"),
+                ])
+                input[1] = 'deplete'
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][3] == 'paired'
+
+            // both_callers is 2,200 pairs; the synthetic host accounts for 600 of the 4,400 reads.
+            def summary = new groovy.json.JsonSlurper().parse(path(process.out.summary[0][1]).toFile())
+            assert summary.seqs_in == 4400
+            assert summary.seqs_out == 3800
+            assert process.out.reads[0][2] == '3800'
+
+            // Interleaved, with the /1 and /2 suffixes Deacon's pair check accepts.
+            def read_names = path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }
+            assert read_names[0].endsWith('/1') && read_names[1].endsWith('/2')
+            assert read_names[0].replaceAll(/\/1$/, '') == read_names[1].replaceAll(/\/2$/, '')
+        }
+    }
+
+    test("a single-end uCRAM is filtered without being mistaken for a pair") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'kmer_only_single', platform: 'ont'],
+                    file("\${reads}/kmer_only_single.unaligned.cram"),
+                    file("${projectDir}/tests/data/generated/references/host.k31w15.idx"),
+                ])
+                input[1] = 'deplete'
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][3] == 'single'
+
+            def summary = new groovy.json.JsonSlurper().parse(path(process.out.summary[0][1]).toFile())
+            assert summary.seqs_in == 400
+            assert summary.check_pairs == false
+        }
+    }
+}

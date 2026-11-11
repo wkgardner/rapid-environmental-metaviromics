@@ -1,0 +1,48 @@
+nextflow_process {
+
+    name "Test PREPARE_CRAM_READS"
+    script "../main.nf"
+    process "PREPARE_CRAM_READS"
+
+    test("a paired uCRAM becomes one interleaved FASTQ") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'both_callers', platform: 'illumina'],
+                    file("\${reads}/both_callers.unaligned.cram"),
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][2] == 'paired'
+
+            // Nothing is filtered here, so all 2,200 pairs come through, interleaved.
+            def read_names = path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }
+            assert read_names.size() == 4400
+            assert read_names[0].endsWith('/1') && read_names[1].endsWith('/2')
+        }
+    }
+
+    test("a single-end uCRAM becomes one FASTQ") {
+        when {
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'kmer_only_single', platform: 'ont'],
+                    file("\${reads}/kmer_only_single.unaligned.cram"),
+                ])
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.reads[0][2] == 'single'
+            assert path(process.out.reads[0][1]).linesGzip.findAll { it.startsWith('@') }.size() == 400
+        }
+    }
+}

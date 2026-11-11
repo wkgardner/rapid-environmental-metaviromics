@@ -121,7 +121,8 @@ nextflow_pipeline {
             def samplesheet = new File("${launchDir}/.nf-test/inputs/e2e_skip_samplesheet.csv")
             samplesheet.parentFile.mkdirs()
             samplesheet.text = "sample_id,srr,platform,fastq1,fastq2,fastq1_glob,fastq2_glob\n" +
-                "kmer_only,,illumina,${reads}/kmer_only_R1.fastq.gz,${reads}/kmer_only_R2.fastq.gz,,\n"
+                "kmer_only,,illumina,${reads}/kmer_only_R1.fastq.gz,${reads}/kmer_only_R2.fastq.gz,,\n" +
+                "both_callers_cram,,illumina,${reads}/both_callers.unaligned.cram,,,\n"
         }
         when {
             params {
@@ -140,6 +141,10 @@ nextflow_pipeline {
             def task_names = workflow.trace.tasks()*.name
             assert !task_names.any { it.contains('REFERENCE_FILTER') }
             assert task_names.any { it.contains('PREPARE_READS') }
+            // A CRAM row takes the same skip path, decoded straight to the prepared FASTQ.
+            assert task_names.any { it.contains('PREPARE_CRAM_READS') }
+            def cram_counts = path("${outputDir}/01_preprocessing/preprocessing_read_counts/rww_20261029_skip_both_callers_cram.preprocessing_read_counts.tsv").readLines()
+            assert ([cram_counts[0].split('\t', -1) as List, cram_counts[1].split('\t', -1) as List].transpose().collectEntries()).raw_reads == '4400'
 
             def lines = path("${outputDir}/01_preprocessing/preprocessing_read_counts/rww_20261029_skip_kmer_only.preprocessing_read_counts.tsv").readLines()
             def counts = [lines[0].split('\t', -1) as List, lines[1].split('\t', -1) as List].transpose().collectEntries()
@@ -178,7 +183,9 @@ nextflow_pipeline {
         then {
             assert workflow.success
             def task_names = workflow.trace.tasks()*.name
-            assert task_names.any { it.contains('DECODE_CRAM_READS') }
+            // Streamed into Deacon, so no plain REFERENCE_FILTER task and no FASTQ on disk.
+            assert task_names.any { it.contains('REFERENCE_FILTER_CRAM') }
+            assert !task_names.any { it ==~ /.*REFERENCE_FILTER \(.*/ }
 
             def counts_for = { sample ->
                 def lines = path("${outputDir}/01_preprocessing/preprocessing_read_counts/rww_20261029_cram_${sample}.preprocessing_read_counts.tsv").readLines()
