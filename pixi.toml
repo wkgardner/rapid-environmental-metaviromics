@@ -24,6 +24,7 @@ polars = "*"
 biopython = "*"
 pyyaml = "*"
 pytest = "*"
+samtools = ">=1.25,<2"
 
 [tasks]
 # Seam A: bin/ scripts.

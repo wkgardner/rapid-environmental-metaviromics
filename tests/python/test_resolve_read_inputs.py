@@ -92,3 +92,42 @@ def test_duplicate_or_unsafe_sample_ids_are_rejected(tmp_path, rows):
 
     assert completed.returncode == 1
     assert "sample" in completed.stderr.lower()
+
+
+def touch_cram(directory: Path, name: str) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_bytes(b"")
+    return path
+
+
+def test_local_cram_resolves_to_a_cram_record(tmp_path):
+    """An archived uCRAM is one file whose pairing is only known once it is decoded."""
+    archived_cram = touch_cram(tmp_path / "cold_storage", "ww_madison.unaligned.cram")
+    completed = resolve(tmp_path, f"ww_madison,,illumina,{archived_cram},,,\n")
+
+    assert completed.returncode == 0, completed.stderr
+    [record] = resolved_records(tmp_path)
+    assert record["sample_id"] == "ww_madison"
+    assert record["source"] == "cram"
+    assert record["read_structure"] == "unknown"
+    assert record["reads"] == [str(archived_cram)]
+
+
+def test_cram_with_fastq2_is_rejected(tmp_path):
+    """A uCRAM holds both mates, so a second file would be ambiguous."""
+    archived_cram = touch_cram(tmp_path / "cold_storage", "ww_madison.unaligned.cram")
+    mate = touch_fastqs(tmp_path / "reads", "ww_madison_R2.fastq.gz")[0]
+    completed = resolve(tmp_path, f"ww_madison,,illumina,{archived_cram},{mate},,\n")
+
+    assert completed.returncode == 1
+    assert "cram" in completed.stderr.lower()
+
+
+def test_cram_glob_is_rejected(tmp_path):
+    """Lane globs are a FASTQ-only concept: one uCRAM already holds every lane."""
+    touch_cram(tmp_path / "cold_storage", "ww_madison.unaligned.cram")
+    completed = resolve(tmp_path, f"ww_madison,,illumina,,,{tmp_path}/cold_storage/*.cram,\n")
+
+    assert completed.returncode == 1
+    assert "cram" in completed.stderr.lower()

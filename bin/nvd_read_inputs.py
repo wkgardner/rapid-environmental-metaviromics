@@ -19,11 +19,12 @@ from nvd_read_filenames import (
     natural_key,
     parse_read_marker,
     read_pair_sort_key,
+    supported_cram_suffix,
     supported_fastq_suffix,
 )
 from nvd_sra_accessions import looks_like_sra_accession
 
-Source = Literal["single_file", "paired_files", "single_glob", "paired_globs", "sra"]
+Source = Literal["single_file", "paired_files", "single_glob", "paired_globs", "sra", "cram"]
 SAFE_SAMPLE_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 PLATFORM_ALIASES = {
@@ -157,6 +158,16 @@ def _validate_supported_fastqs(sample_id: str, paths: tuple[Path, ...]) -> None:
     invalid = [path for path in paths if not supported_fastq_suffix(path)]
     if not invalid:
         return
+    crams = [path for path in invalid if supported_cram_suffix(path)]
+    if crams:
+        message = (
+            f'Invalid CRAM declaration for sample "{sample_id}"\n\n'
+            "CRAM files are only accepted in the fastq1 column, one per sample:\n\n"
+            + "\n".join(f"  {path}" for path in crams)
+            + "\n\nA CRAM already holds every lane and both mates, so the glob "
+            "columns do not apply to it."
+        )
+        raise ResolutionError(message)
     supported = ", ".join(SUPPORTED_FASTQ_SUFFIXES)
     message = (
         f'Invalid FASTQ declaration for sample "{sample_id}"\n\n'
@@ -266,7 +277,7 @@ def _resolve_glob(sample_id: str, column: str, pattern: str) -> tuple[Path, ...]
 
 def _shadowed_source_warnings(row: SamplesheetRow, source: Source) -> tuple[str, ...]:
     lower_sources: list[str] = []
-    if source in {"single_file", "paired_files"}:
+    if source in {"single_file", "paired_files", "cram"}:
         if row.fastq1_glob:
             lower_sources.append("fastq1_glob")
         if row.fastq2_glob:
@@ -302,6 +313,24 @@ def _resolve_exact_files(
     _reject_magic_in_exact_path(row.sample_id, "fastq1", row.fastq1)
     fastq1 = _absolute_preserving_symlink(row.fastq1)
     _validate_existing_file(row.sample_id, "fastq1", fastq1)
+
+    if supported_cram_suffix(fastq1):
+        if row.fastq2:
+            message = (
+                f'Invalid CRAM declaration for sample "{row.sample_id}"\n\n'
+                "fastq1 is a CRAM file, which already holds both mates:\n\n"
+                f"  {fastq1}\n\n"
+                "Leave fastq2 empty for CRAM input."
+            )
+            raise ResolutionError(message)
+        warnings = platform_warnings + _shadowed_source_warnings(row, "cram")
+        return ResolvedSample(
+            sample_id=row.sample_id,
+            platform=platform,
+            source="cram",
+            reads=(fastq1,),
+            warnings=warnings,
+        )
 
     if row.fastq2:
         _reject_magic_in_exact_path(row.sample_id, "fastq2", row.fastq2)
@@ -477,9 +506,13 @@ def resolve_rows(rows: tuple[SamplesheetRow, ...]) -> Resolution:
 
 
 def _sample_to_json(sample: ResolvedSample) -> dict[str, object]:
-    if sample.r1:
+    if sample.source == "cram":
+        # A CRAM's pairing is read from its flags when it is decoded, not from the samplesheet.
+        read_structure = "unknown"
+        read_counts: dict[str, int] | None = None
+    elif sample.r1:
         read_structure = "paired"
-        read_counts: dict[str, int] | None = {
+        read_counts = {
             "R1": len(sample.r1),
             "R2": len(sample.r2),
         }

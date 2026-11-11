@@ -24,6 +24,9 @@ SUPPORTED_FASTQ_SUFFIXES = (
     ".fq.zst",
 )
 GENERATED_FASTQ_SUFFIXES = (".fastq", ".fq", ".fastq.gz", ".fq.gz")
+# Unaligned CRAM, as written by archival conversion. One file holds every read of a sample,
+# including every lane, so its pairing is only known once it has been decoded.
+SUPPORTED_CRAM_SUFFIXES = (".cram",)
 
 CASAVA_LANE_NAME = re.compile(
     r"^(?P<prefix>.+)_L(?P<lane>\d{3})_R(?P<read>[12])_"
@@ -79,6 +82,10 @@ def natural_key(value: str) -> tuple[object, ...]:
 
 def supported_fastq_suffix(path: Path) -> bool:
     return path.name.endswith(SUPPORTED_FASTQ_SUFFIXES)
+
+
+def supported_cram_suffix(path: Path) -> bool:
+    return path.name.endswith(SUPPORTED_CRAM_SUFFIXES)
 
 
 def compression_kind(path: Path) -> Compression:
