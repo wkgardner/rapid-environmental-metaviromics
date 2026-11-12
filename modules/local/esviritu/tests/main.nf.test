@@ -35,21 +35,22 @@ nextflow_process {
             def assemblies = path(process.out.tables[0][1]).readLines().drop(1).collect { it.split('\t')[2] } as Set
             assert assemblies == ['GCF_000859645.1', 'GCF_001461485.1', 'acc:ON897592.1',
                                   'set:43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA/S2-2__Sadwavirus_alphananas'] as Set
-            // esviritu_keep is on by default, so EsViritu's alignments come back as outputs: the
-            // round-3 alignment on its own, everything else in the intermediates folder.
+            // esviritu_keep defaults to 'final': the round-3 alignment, its index and the reference
+            // set round 3 was mapped against, so the BAM is usable on its own. Nothing else.
             assert process.out.final_bam[0][1]*.toString().collect { new File(it).name }.sort() ==
-                ['both_callers.third.filt.sorted.bam', 'both_callers.third.filt.sorted.bam.bai']
-            def kept_folder = new File(process.out.intermediates[0][1])
-            assert kept_folder.name == 'both_callers'
-            assert kept_folder.listFiles()*.name.contains('both_callers.initial.filt.sorted.bam')
-            assert !kept_folder.listFiles()*.name.contains('both_callers.third.filt.sorted.bam')
+                ['both_callers.third.filt.sorted.bam', 'both_callers.third.filt.sorted.bam.bai',
+                 'both_callers.third.reference.fa']
+            assert process.out.intermediates.size() == 0
+            // The renamed reference is real FASTA, not an empty placeholder.
+            def third_reference = process.out.final_bam[0][1].find { it.toString().endsWith('.third.reference.fa') }
+            assert path(third_reference).readLines()[0].startsWith('>')
         }
     }
 
-    test("esviritu_keep = false: no intermediate files come back, and the sample is still called") {
+    test("esviritu_keep = none: no alignments come back, and the sample is still called") {
         when {
             params {
-                esviritu_keep = false
+                esviritu_keep = 'none'
             }
             process {
                 """
@@ -66,6 +67,39 @@ nextflow_process {
             assert process.success
             assert process.out.status[0][1] == 'ok'
             assert process.out.intermediates.size() == 0
+            assert process.out.final_bam.size() == 0
+        }
+    }
+
+    test("esviritu_keep = all: rounds 1-2 come back too, with round 3 kept out of them") {
+        when {
+            params {
+                esviritu_keep = 'all'
+            }
+            process {
+                """
+                def reads = "${projectDir}/tests/data/generated/reads"
+                input[0] = Channel.of([
+                    [id: 'mapping_only', platform: 'illumina', read_mode: 'paired', r1_count: 1],
+                    file("\${reads}/mapping_only_R1.fastq.gz"),
+                ])
+                input[1] = file("${projectDir}/tests/data/generated/references/esviritu_db")
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.final_bam[0][1]*.toString().collect { new File(it).name }.sort() ==
+                ['mapping_only.third.filt.sorted.bam', 'mapping_only.third.filt.sorted.bam.bai',
+                 'mapping_only.third.reference.fa']
+            def kept_folder = new File(process.out.intermediates[0][1])
+            assert kept_folder.name == 'mapping_only'
+            assert kept_folder.listFiles()*.name.contains('mapping_only.initial.filt.sorted.bam')
+            // What 'final' publishes has moved out, so nothing is published twice. EsViritu's
+            // unsorted round-3 BAM stays behind: it is a duplicate of the sorted one, not a result.
+            assert kept_folder.listFiles()*.name.findAll { it.startsWith('mapping_only.third.filt.sorted') } == []
+            assert !kept_folder.listFiles()*.name.contains('mapping_only_second_clustered_refs.fasta')
+            assert kept_folder.listFiles()*.name.contains('mapping_only.third.filt.bam')
         }
     }
 

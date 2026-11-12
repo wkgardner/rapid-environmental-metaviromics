@@ -1,0 +1,3 @@
+Sample_file	Genome_file	Taxonomic_abundance	Sequence_abundance	Adjusted_ANI	Eff_cov	ANI_5-95_percentile	Eff_lambda	Lambda_5-95_percentile	Median_cov	Mean_cov_geq1	Containment_ind	Naive_ANI	kmers_reassigned	Contig_name
+both_callers	sylph_genomes/GCF_000859645.1.fna	35.7865	23.4458	100.00	15.000	NA-NA	HIGH	NA-NA	15	15.160	81/81	100.00	0	NC_003630.1__f0
+both_callers	sylph_genomes/acc_ON897592.1.fna	9.3979	28.6053	99.93	3.939	NA-NA	HIGH	NA-NA	4	3.939	378/386	99.93	0	ON897592.1__f0

@@ -60,7 +60,7 @@ pixi run python bin/write_samplesheet_from_fastq_dir.py --fastq-dir /data/run --
 | --- | --- | --- |
 | `reference_filter_index` | Deacon index of the reads to remove (default mode) or keep | `scripts/build_host_depletion_index.sh` builds panhuman-1 + SILVA SSU/LSU, after you download the inputs listed at the top of the script |
 | `esviritu_database` | Folder holding `virus_pathogen_database.{fna,fna.fai,mmi,all_metadata.tsv}` | The [EsViritu database](https://doi.org/10.5281/zenodo.17716199) |
-| `vpd_lookup` | One row per VPD assembly, shared by both call tables | `bin/build_vpd_lookup.py` |
+| `vpd_lookup` | One row per VPD assembly. Not a pipeline param: it is only an input to the sylph reference build below | `bin/build_vpd_lookup.py` |
 | `sylph_database` | VPD sketched at k31, c50 | `bin/write_sylph_genome_fastas.py`, then `sylph sketch` |
 
 To build the last two from a VPD folder (`$VPD`):
@@ -88,23 +88,24 @@ If your filter index differs from the default, set `reference_filter_index_descr
 │   ├── preprocessing_read_counts/
 │   └── logs/
 ├── 02_genome_kmer_based_calling/
-│   └── genome_kmer_based_calls/
+│   └── sylph_results/                 <sample_id>.sylph_profile.tsv
 ├── 03_genome_mapping_based_calling/
-│   ├── genome_mapping_based_calls/
-│   └── esviritu_reports/<sample_id>/esviritu_output/   (and <sample_id>_temp/ with esviritu_keep)
+│   ├── esviritu_results/<sample_id>/  EsViritu's tables, consensus, log, params
+│   ├── esviritu_final_bams/           <sample_id>.third.filt.sorted.bam{,.bai}, .third.reference.fa
+│   └── esviritu_intermediates/<sample_id>/   rounds 1-2 and clustering tables (esviritu_keep: all)
 ├── 04_qc_report/                      <run_id>.multiqc_report.html
 └── 05_run_summary/
     ├── sample_status/
     └── <run_id>.run_metadata.yaml
 ```
 
-Tables are named `<run_id>_<sample_id>.<table>.tsv`, and every row carries `run_id` and `sample_id`. An empty cell means null.
+Each caller's own output is the result: sylph's profile and EsViritu's tables, consensus and alignments, published unchanged. REMV derives no call table of its own, so taxonomy joins and thresholds happen downstream.
+
+REMV's own tables are named `<run_id>_<sample_id>.<table>.tsv`, and every row carries `run_id` and `sample_id`. An empty cell means null.
 
 | Table | One row per | Key columns |
 | --- | --- | --- |
 | `preprocessing_read_counts` | sample | `raw_reads`, `reads_removed_by_reference_filter`, `reads_post_reference_filter`, `qc_duplicate_reads_removed`, `reads_post_qc` |
-| `genome_kmer_based_calls` | sample × VPD assembly | `vpd_assembly`, `vpd_species`, `vpd_genus`, `adjusted_ani`, `effective_coverage`, `taxonomic_abundance` |
-| `genome_mapping_based_calls` | sample × VPD assembly | `vpd_assembly`, `call_level`, `vpd_species`, `vpd_genus`, `read_count`, `breadth_fraction`, `rpkmf`, `normalized_read_ratio` |
 | `sample_status` | sample × step | `step`, `status` (`ok`, `no_reads_left`, `skipped_no_reads`, `no_detections`, `failed`, `skipped`) |
 
 `run_metadata.yaml` records the tool and version behind each step, the reference versions and every effective param. Table and column names stay tool-neutral, so a tool can change without changing the tables.
@@ -112,9 +113,9 @@ Tables are named `<run_id>_<sample_id>.<table>.tsv`, and every row carries `run_
 ### Reading the calls
 
 - **The two callers disagree at the edges, by design.** EsViritu reports more species, many of them on a handful of reads. sylph can miss viruses present at low levels in large genomes.
-- **The pipeline does not compare the callers.** Compare `genome_kmer_based_calls` with `genome_mapping_based_calls` downstream, for example in SQL in your LIMS. See [GLOSSARY.md](GLOSSARY.md) for the terms.
+- **The pipeline does not compare the callers**, or post-process either one. Compare `sylph_results` with `esviritu_results` downstream, for example in SQL in your LIMS. See [GLOSSARY.md](GLOSSARY.md) for the terms.
+- **sylph does not name the VPD assembly.** Its `Genome_file` is the reference FASTA it was given, with `:` and `/` sanitised to `_` (`set:MF678311` becomes `set_MF678311`). Un-mangle it when joining to EsViritu's `Assembly`.
 - **`vpd_subspecies` is not a strain call.** It names the nearest reference genome, not a variant detected in the sample.
-- **`normalized_read_ratio` is relative to one genus.** It divides a call's `read_count` by the sample's total reads in `normalization_genus` (default `Tobamovirus`). It is null when the sample has no call in that genus, and it applies to mapping-based calls only.
 
 ## Configuration
 
@@ -127,10 +128,9 @@ Every tool setting has a default in [nextflow.config](nextflow.config) and can b
 | `trim_adapters` | `true` | BBDuk adapter trimming (Illumina only) |
 | `dedup` | `true` | Clumpify exact-duplicate removal |
 | `skip_read_filtering` | `false` | Skips the BBDuk quality, length and low-complexity filter |
-| `skip_genome_kmer_based_calling` | `false` | Skips sylph; `sylph_database` is then not needed (`vpd_lookup` still is) |
-| `skip_genome_mapping_based_calling` | `false` | Skips EsViritu; `esviritu_database` is then not needed (`vpd_lookup` still is) |
-| `esviritu_keep` | `true` | Publishes EsViritu's temp folder, including its BAM files, beside its raw files. These add up across a run; set `false` to save space |
-| `normalization_genus` | `Tobamovirus` | Denominator for `normalized_read_ratio` |
+| `skip_genome_kmer_based_calling` | `false` | Skips sylph; `sylph_database` is then not needed |
+| `skip_genome_mapping_based_calling` | `false` | Skips EsViritu; `esviritu_database` is then not needed |
+| `esviritu_keep` | `final` | Which alignments to publish. `none`: no BAMs. `final`: the round-3 BAM, its index and the reference it was mapped against (~180 MB/sample). `all`: plus rounds 1-2 and the clustering tables (~1 GB/sample) |
 
 The sylph settings (k31, c50, minimum ANI 90) are the v1 defaults. The sylph database must be built at the same k-mer length and compression as the sample sketches.
 

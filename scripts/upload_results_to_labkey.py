@@ -56,8 +56,7 @@ BUNDLE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("05_run_summary/*.run_metadata.yaml", "run metadata"),
     ("04_qc_report/*.multiqc_report.html", "MultiQC report"),
     ("01_preprocessing/preprocessing_read_counts/*.tsv", "preprocessing read counts"),
-    ("02_genome_kmer_based_calling/genome_kmer_based_calls/*.tsv", "genome k-mer-based calls"),
-    ("03_genome_mapping_based_calling/genome_mapping_based_calls/*.tsv", "genome mapping-based calls"),
+    ("02_genome_kmer_based_calling/sylph_results/*.tsv", "sylph profiles"),
     ("05_run_summary/sample_status/*.tsv", "sample status"),
     # EsViritu's own per-sample output: tables, consensus, log, params.
     ("03_genome_mapping_based_calling/esviritu_results/*/*.tsv", "EsViritu tables"),
@@ -69,6 +68,10 @@ BUNDLE_PATTERNS: tuple[tuple[str, str], ...] = (
     # default; about 8.7 GB for 48 samples. The dry run prints the total before anything moves.
     ("03_genome_mapping_based_calling/esviritu_final_bams/*.bam", "EsViritu final BAM"),
     ("03_genome_mapping_based_calling/esviritu_final_bams/*.bam.bai", "EsViritu final BAM index"),
+    # The reference set round 3 mapped against. Small, and without it the BAM supports
+    # idxstats/view/fastq but not pileup, variant calling or recomputing identity.
+    ("03_genome_mapping_based_calling/esviritu_final_bams/*.third.reference.fa",
+     "EsViritu round-3 reference"),
 )
 
 # --include-clustering. The read-sharing and clustering tables EsViritu keeps alongside its

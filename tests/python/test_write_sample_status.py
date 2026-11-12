@@ -33,9 +33,11 @@ def test_preprocessing_status_comes_from_the_reads_left(tmp_path, reads_post_qc,
         "run_id": "rww_20261029_test", "sample_id": "s1", "step": "preprocessing", "status": expected}
 
 
+# The pipeline passes sylph's own profile here, not a REMV table: the step only asks whether
+# the caller reported anything, and a header-only profile means it did not.
 @pytest.mark.parametrize("calls_table, expected", [
-    ("both_callers.genome_kmer_based_calls.tsv", "ok"),
-    ("mapping_only.genome_kmer_based_calls.tsv", "no_detections"),
+    ("both_callers.sylph_profile.tsv", "ok"),
+    ("mapping_only.sylph_profile.tsv", "no_detections"),
 ])
 def test_kmer_calling_status_comes_from_whether_the_table_has_calls(tmp_path, calls_table, expected):
     completed = write_status(tmp_path, "genome_kmer_based_calling", "--calls-table", str(FIXTURES / "calls" / calls_table))

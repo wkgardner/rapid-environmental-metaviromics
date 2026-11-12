@@ -58,9 +58,9 @@ A genome mapping-based call is an EsViritu 1.3.5 assembly with read_count ≥ 1,
 - **Wrapper:** EsViritu's exit codes are unreliable. "No reads aligned" (exit 1) → `no_detections`, a real negative; a crash or exit 0 with no tables → `failed`.
 - Version 1.3.5 contains the fix for issue #51 (one SARS-CoV-2-rich sample needed 156 GiB on 1.3.4).
 
-**Abundance normalisation (in v1):** every genome mapping-based call gets `normalized_read_ratio`, its `read_count` divided by the sample's total reads on a chosen genus. The genus is a param, `normalization_genus`, default `Tobamovirus`, matched by name on VPD's own `genus` metadata (`vpd_genus`).
+**Abundance normalisation (downstream, not in the pipeline):** REMV published a `normalized_read_ratio` until 2026-11-12, when the derived call tables were removed in favour of the callers' raw output. The recommendation stands for whoever computes it downstream: divide a call's `read_count` by the sample's total reads on the `Tobamovirus` genus, matched on VPD's own `genus` metadata.
 
-- The denominator is the sum of `read_count` over that sample's genome mapping-based calls with `vpd_genus` = the chosen genus, at any `call_level` (species and genus-only rows both count). Dividing by it cancels sequencing depth and the compositional swings that rRNA and other abundant taxa cause.
+- The denominator is the sum of `read_count` over that sample's EsViritu rows with `genus` = the chosen genus, whether the row is a species or a genus-only call. Dividing by it cancels sequencing depth and the compositional swings that rRNA and other abundant taxa cause.
 - Why the genus, not PMMoV alone: a collaborator's July 2026 medRxiv preprint (not yet peer reviewed) found Tobamovirus-genus reads the best of seven denominators, improving median site-level concordance in 18 of 19 pathogen × comparison-source pairs (SARS-CoV-2 vs WW-PCR: Spearman R 0.38 → 0.72). ToBRFV was ~10× more abundant than PMMoV and ~72 % of genus reads.
 - If a sample has no genome mapping-based call in the chosen genus, `normalized_read_ratio` is null for that sample.
 - Normalisation applies to genome mapping-based calls only; genome k-mer-based calls are not normalised.
@@ -74,8 +74,8 @@ Every table is a TSV, one file per sample, written once when its step finishes a
 
 ```
 01_preprocessing/                  preprocessing_read_counts, Deacon summaries, BBDuk and Clumpify logs
-02_genome_kmer_based_calling/      genome_kmer_based_calls
-03_genome_mapping_based_calling/   genome_mapping_based_calls (+ EsViritu per-sample reports)
+02_genome_kmer_based_calling/      sylph_results (sylph's own profile, one TSV per sample)
+03_genome_mapping_based_calling/   esviritu_results, esviritu_final_bams, esviritu_intermediates
 04_qc_report/                      <run_id>.multiqc_report.html
 05_run_summary/                    sample_status, <run_id>.run_metadata.yaml
 ```
@@ -83,12 +83,11 @@ Every table is a TSV, one file per sample, written once when its step finishes a
 | Table | Grain | Published when | Columns (after `run_id`, `sample_id`) |
 | --- | --- | --- | --- |
 | `preprocessing_read_counts` | sample | read QC finishes | `raw_reads`, `host_reads_removed`, `reads_post_depletion`, `qc_adapter_trimmed_reads`, `qc_duplicate_reads_removed`, `qc_low_quality_reads_removed`, `qc_low_complexity_reads_removed`, `reads_post_qc` |
-| `genome_kmer_based_calls` | sample × VPD Assembly | genome k-mer-based calling finishes | `vpd_assembly`, `vpd_species`, `vpd_subspecies`, `vpd_genus`, `vpd_family`, `vpd_taxids`, `taxonomic_abundance`, `sequence_abundance`, `adjusted_ani`, `naive_ani`, `effective_coverage`, `containment_matching_kmers`, `containment_total_kmers`, `kmers_reassigned` |
-| `genome_mapping_based_calls` | sample × EsViritu Assembly | genome mapping-based calling finishes | `vpd_assembly`, `call_level`, `vpd_species`, `vpd_subspecies`, `vpd_genus`, `vpd_family`, `vpd_taxids`, `subspecies_label`, `read_count`, `covered_bases`, `assembly_length`, `breadth_fraction`, `mean_coverage`, `avg_read_identity`, `consensus_ref_identity`, `rpkmf`, `normalized_read_ratio` |
 | `sample_status` | sample × step | each step ends (one file per step) | `step` (`preprocessing`, `genome_kmer_based_calling`, `genome_mapping_based_calling`), `status` (`ok`, `no_reads_left`, `skipped_no_reads`, `no_detections`, `failed`) |
 
 - Read counts are reads (mates), not pairs. `host_reads_removed` is the one unioned pass (human + rRNA). `qc_adapter_trimmed_reads` counts reads BBDuk trimmed (kept, not removed). `qc_duplicate_reads_removed` is Clumpify's exact-duplicate count. `reads_post_qc` is EsViritu's RPKMF denominator.
-- `vpd_taxids` is `;`-joined. `vpd_subspecies` is VPD's label for the reference (e.g. `SARS-CoV-2_Delta`): the nearest reference, not a variant call. `subspecies_label` is EsViritu's own adjusted label.
+- **The callers' own output is the result.** REMV publishes sylph's profile and EsViritu's tables, consensus and alignments unchanged; it derives no call table of its own. Taxonomy joins, thresholds and any cross-caller normalisation happen downstream. Note sylph names only the reference FASTA it was given (`sylph_genomes/<assembly>.fna`, with `:` and `/` sanitised to `_`), so recovering a VPD assembly id from a sylph row is the consumer's job.
+- `esviritu_keep` decides how much of EsViritu's alignment work is published: `none`, `final` (the round-3 BAM, its index and `<sample>.third.reference.fa`, the reference set round 3 mapped against) or `all` (plus rounds 1-2 and the clustering tables).
 - `run_metadata.yaml`: run_id, pipeline version, start time, samplesheet, VPD/mask/taxdump versions, `steps:` (tool + version per step, each depletion pass with what it removes and its index), and every effective param.
 - A throwaway prototype with fake data and a click-through viewer is in `.scratch/v1-pipeline-spec/prototypes/09-output-tables-PROTOTYPE/`.
 
@@ -104,24 +103,13 @@ Example rows from the prototype's fake run `rww_20261028_happy_turing` (real VPD
 | ww_milwaukee_2026w43 | 6200000 | 2544310 | 3655690 | 410000 | 3132890 |
 | negative_control_2026w43 | 12000 | 12000 | 0 |  | 0 |
 
-**`genome_kmer_base``d_calls`** (one row per sylph hit; ww_madison has 11, four shown)
-
-| sample_id | vpd_assembly | vpd_species | vpd_subspecies | adjusted_ani | effective_coverage | containment_matching_kmers | containment_total_kmers |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| ww_madison_2026w43 | acc:MW423686.2 | Betacoronavirus pandemicum | SARS-CoV-2_Alpha | 99.61 | 3.9 | 180 | 183 |
-| ww_madison_2026w43 | acc:BS001637.1 | Betacoronavirus pandemicum | SARS-CoV-2_Delta | 99.55 | 3.1 | 178 | 183 |
-| ww_madison_2026w43 | acc:BS002303.1 | Betacoronavirus pandemicum | SARS-CoV-2_Omicron | 99.48 | 2.5 | 174 | 183 |
-| ww_madison_2026w43 | set:EF564601 | Human mastadenovirus B | Human adenovirus 3+11p | 91.40 | 0.2 | 18 | 439 |
-
-**`g``en``ome_mapping_based``_calls`** (ww_milwaukee; PMMoV is this sample's only Tobamovirus call, so the genus total is 70,114 reads and PMMoV's `normalized_read_ratio` is 1)
-
-| sample_id | vpd_assembly | call_level | vpd_species | vpd_genus | read_count | breadth_fraction | rpkmf | normalized_read_ratio |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ww_milwaukee_2026w43 | GCF_000859645.1 | species | Tobamovirus capsici | Tobamovirus | 70114 | 1.000 | 3520.5 | 1 |
-| ww_milwaukee_2026w43 | acc:MW423686.2 | species | Betacoronavirus pandemicum | Betacoronavirus | 1204 | 1.000 | 12.88 | 0.0172 |
-| ww_milwaukee_2026w43 | set:84ac15bd… | species | Alphainfluenzavirus influenzae | Alphainfluenzavirus | 812 | 1.000 | 19.44 | 0.0116 |
-| ww_milwaukee_2026w43 | GCF_000846685.1 | genus |  | Mastadenovirus | 388 | 1.000 | 3.62 | 0.00553 |
-| ww_milwaukee_2026w43 | GCF_000857045.1 | species | Orthopoxvirus monkeypox | Orthopoxvirus | 2 | 0.002 | 0.0032 | 0.0000285 |
+Both callers' tables are their own, documented upstream rather than here: sylph's profile
+columns (`Taxonomic_abundance`, `Adjusted_ANI`, `Eff_cov`, `Containment_ind`, `Genome_file`,
+`Contig_name`, ...) and EsViritu's `detected_virus.info.tsv` columns (`Accession`, `Assembly`,
+`family`, `genus`, `species`, `subspecies`, `RPKMF`, `read_count`, `covered_bases`,
+`mean_coverage`, `avg_read_identity`, `consensus_ref_identity`, `Pi`,
+`filtered_reads_in_sample`). Breadth is not a column in either: compute
+`covered_bases / Length`.
 
 **`sample_status`** (one file per step)
 
@@ -151,8 +139,7 @@ Every tool setting and threshold has a spec-chosen default and is exposed as a p
 | Host depletion | `abs_threshold 2`, `rel_threshold 0.01`, `complexity_threshold null` |
 | Read QC (BBTools) | `trim_adapters true` (Illumina only), `dedup true` (Clumpify, exact), `min_read_quality_illumina 20`, `min_read_quality_nanopore 12`, `min_read_length 50`, `filter_low_complexity_reads true`, `min_read_entropy 0.5` (NVD's names and values) |
 | sylph | k31, `-c 50`, `minimum_ani 90`, `min_count_correct 3`, `min_reference_kmers 1`, `min_matching_kmers 0`, `redundancy_threshold 99` (locked) |
-| Genome mapping-based calls | `mapping_based_call_min_read_count 1`, EsViritu `dedup false` |
-| Normalisation | `normalization_genus Tobamovirus` (matched on VPD's genus name) |
+| Genome mapping-based calls | EsViritu `dedup false`, `esviritu_keep final` |
 | Run | `run_id` (default `rww_<YYYYMMDD>_<runName>`), `mono_container false` |
 
 Changing a default means changing the spec. A per-run override goes in that run's params YAML, and the effective values land in `run_metadata.yaml`. All configs are YAML only.
@@ -214,7 +201,7 @@ v1 leaves comparing the two callers' calls, rRNA bait screening and LIMS upload 
 **Out of scope for v1**
 
 - Any strain-level comparison or corroborate/override of genome k-mer-based and genome mapping-based calls, in the pipeline or in post-processing.
-- Comparing the two callers (for example species confirmation): done in SQL in the LIMS backend over `genome_kmer_based_calls` and `genome_mapping_based_calls`.
+- Comparing the two callers (for example species confirmation): done in SQL in the LIMS backend over the published `sylph_results` and `esviritu_results`.
 - rRNA extraction and bait screening: no rRNA branch in v1; silly-fast-bfx stays a separate tool.
 - Uploading to LabKey or any LIMS: file watchers over WebDAV, or a direct S3 upload (see LIMS upload).
 - A SQLite-watch trigger for launching runs: v1 starts from a samplesheet. Add in sqlite db watcher as our sample manifest from sluice is built for auto kickoffs.

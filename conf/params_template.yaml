@@ -18,10 +18,14 @@ reference_filter_index_description: panhuman-1 + SILVA SSU 144 + LSU 138.2 + Rfa
 # Genome k-mer-based calling: built from the vector-masked VPD with
 #   bin/build_vpd_lookup.py, bin/write_sylph_genome_fastas.py, sylph sketch -k 31 -c 50
 sylph_database: /home/<you>/refs/vpd_3.2.4_vector_only/vpd_3.2.4_vector_only.k31c50.syldb
-vpd_lookup: /home/<you>/refs/vpd_3.2.4_vector_only/vpd_lookup.tsv
 
 # Genome mapping-based calling: directory with virus_pathogen_database.{fna,fna.fai,mmi,all_metadata.tsv}
 esviritu_database: /home/<you>/refs/esviritu_db_v3.2.4_vector_only
+
+# Which of EsViritu's alignments to publish: none | final | all
+#   final: the round-3 BAM, its index and the reference it was mapped against
+#   all:   the above plus rounds 1-2 and the clustering tables (tens of GB per run)
+esviritu_keep: final
 
 # Recorded in run_metadata.yaml
 vpd_version: '3.2.4'

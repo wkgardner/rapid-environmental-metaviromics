@@ -14,9 +14,7 @@ include { BBDUK_FILTER_READS               } from '../modules/local/bbduk_filter
 include { BUILD_PREPROCESSING_READ_COUNTS  } from '../modules/local/build_preprocessing_read_counts'
 include { SYLPH_SKETCH_READS               } from '../modules/local/sylph_sketch_reads'
 include { SYLPH_PROFILE                    } from '../modules/local/sylph_profile'
-include { BUILD_GENOME_KMER_BASED_CALLS    } from '../modules/local/build_genome_kmer_based_calls'
 include { ESVIRITU                         } from '../modules/local/esviritu'
-include { BUILD_GENOME_MAPPING_BASED_CALLS } from '../modules/local/build_genome_mapping_based_calls'
 include { WRITE_SAMPLE_STATUS              } from '../modules/local/write_sample_status'
 include { MULTIQC                          } from '../modules/local/multiqc'
 
@@ -127,24 +125,15 @@ workflow RAPID_WW {
     BUILD_PREPROCESSING_READ_COUNTS(ch_sample_logs, run_id)
 
     // ---- Genome k-mer-based calling (sylph) ----
-    def vpd_lookup = file(params.vpd_lookup, checkIfExists: true)
+    // sylph's own profile is the published result; REMV adds nothing to it.
     ch_callable = ch_preprocessed_by_reads.callable
-    ch_kmer_calls = params.skip_genome_kmer_based_calling ? channel.empty()
-        : BUILD_GENOME_KMER_BASED_CALLS(
-            SYLPH_PROFILE(SYLPH_SKETCH_READS(ch_callable).sketch, file(params.sylph_database, checkIfExists: true)).profile,
-            vpd_lookup, run_id).table
+    ch_sylph_profiles = params.skip_genome_kmer_based_calling ? channel.empty()
+        : SYLPH_PROFILE(SYLPH_SKETCH_READS(ch_callable).sketch,
+                        file(params.sylph_database, checkIfExists: true)).profile
 
     // ---- Genome mapping-based calling (EsViritu) ----
     ch_mapping_status = params.skip_genome_mapping_based_calling ? channel.empty()
         : ESVIRITU(ch_callable, file(params.esviritu_database, checkIfExists: true)).status
-    ch_mapping_tables = params.skip_genome_mapping_based_calling ? channel.empty()
-        : ESVIRITU.out.tables.map { meta, assembly_summary, info, status -> tuple(meta.id, [assembly_summary, info]) }
-    ch_mapping_results = ch_mapping_status
-        .map { meta, status -> tuple(meta.id, meta, status) }
-        .join(ch_mapping_tables, by: 0, remainder: true)
-        .map { sample_id, meta, status, tables -> tuple(meta, status, tables ?: []) }
-    ch_mapping_calls = params.skip_genome_mapping_based_calling ? channel.empty()
-        : BUILD_GENOME_MAPPING_BASED_CALLS(ch_mapping_results, vpd_lookup, run_id).table
 
     // ---- sample_status: one row per sample and step ----
     ch_samples_without_reads = ch_depleted.no_reads_left.map { meta, reads -> meta }
@@ -158,7 +147,7 @@ workflow RAPID_WW {
         ] })
         .mix(params.skip_genome_kmer_based_calling
             ? ch_callable.map { meta, reads -> tuple(meta, 'genome_kmer_based_calling', [status: 'skipped'], []) }
-            : ch_kmer_calls.map { meta, table -> tuple(meta, 'genome_kmer_based_calling', [calls_table: true], table) })
+            : ch_sylph_profiles.map { meta, profile -> tuple(meta, 'genome_kmer_based_calling', [calls_table: true], profile) })
         .mix(params.skip_genome_mapping_based_calling
             ? ch_callable.map { meta, reads -> tuple(meta, 'genome_mapping_based_calling', [status: 'skipped'], []) }
             : ch_mapping_status.map { meta, status -> tuple(meta, 'genome_mapping_based_calling', [status: status], []) })
@@ -175,8 +164,7 @@ workflow RAPID_WW {
     emit:
     preprocessing_read_counts = BUILD_PREPROCESSING_READ_COUNTS.out.table
     preprocessing_logs = ch_step_logs.map { sample_id, log_file -> log_file }
-    genome_kmer_based_calls = ch_kmer_calls
-    genome_mapping_based_calls = ch_mapping_calls
+    sylph_profiles = ch_sylph_profiles
     esviritu_reports = params.skip_genome_mapping_based_calling ? channel.empty() : ESVIRITU.out.reports
     esviritu_final_bams = params.skip_genome_mapping_based_calling ? channel.empty() : ESVIRITU.out.final_bam
     esviritu_intermediates = params.skip_genome_mapping_based_calling ? channel.empty() : ESVIRITU.out.intermediates

@@ -22,7 +22,6 @@ nextflow_pipeline {
                 run_id = 'rww_20261029_e2e'
                 reference_filter_index = "${references}/host.k31w15.idx"
                 sylph_database = "${references}/vpd.syldb"
-                vpd_lookup = "${references}/vpd_lookup.tsv"
                 esviritu_database = "${references}/esviritu_db"
                 vpd_version = '3.2.4-subset'
             }
@@ -51,21 +50,26 @@ nextflow_pipeline {
                 'host_only/preprocessing': 'no_reads_left', 'host_only/genome_kmer_based_calling': 'skipped_no_reads', 'host_only/genome_mapping_based_calling': 'skipped_no_reads',
             ]
 
-            // Both callers find the five genomes sampled into both_callers.
-            def both_callers_assemblies = ['GCF_000859645.1', 'GCF_001461485.1', 'acc:ON897592.1',
-                                           'set:43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA/S2-2__Sadwavirus_alphananas'] as Set
-            assert read_tsv(table_file('02_genome_kmer_based_calling', 'both_callers', 'genome_kmer_based_calls'))*.vpd_assembly as Set == both_callers_assemblies
-            def mapping_calls = read_tsv(table_file('03_genome_mapping_based_calling', 'both_callers', 'genome_mapping_based_calls'))
-            assert mapping_calls*.vpd_assembly as Set == both_callers_assemblies
-            // PMMoV's 800 reads over the Tobamovirus total (PMMoV 800 + ToBRFV 400).
-            def pmmov = mapping_calls.find { it.vpd_assembly == 'GCF_000859645.1' }
-            assert Math.abs((pmmov.normalized_read_ratio as double) - 800 / 1200) < 1e-9
+            // Each caller publishes its own raw output; REMV no longer derives a table from either.
+            def sylph_profile = { sample -> read_tsv("02_genome_kmer_based_calling/sylph_results/${sample}.sylph_profile.tsv") }
+            def esviritu_info = { sample -> read_tsv("03_genome_mapping_based_calling/esviritu_results/${sample}/${sample}.detected_virus.info.tsv") }
+
+            // Both callers find the five genomes sampled into both_callers. EsViritu names the VPD
+            // assembly directly; sylph only names the reference FASTA it was given, whose filename
+            // had ':' and '/' sanitised to '_', so the two callers do not agree on spelling. That
+            // un-mangling used to happen in build_genome_kmer_based_calls.py and is now the
+            // consumer's job.
+            def sylph_genome = { row -> row.Genome_file.split('/')[-1] - '.fna' }
+            assert sylph_profile('both_callers').collect(sylph_genome) as Set ==
+                ['GCF_000859645.1', 'GCF_001461485.1', 'acc_ON897592.1',
+                 'set_43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA_S2-2__Sadwavirus_alphananas'] as Set
+            assert esviritu_info('both_callers')*.Assembly as Set ==
+                ['GCF_000859645.1', 'GCF_001461485.1', 'acc:ON897592.1',
+                 'set:43d19931109e46219fb3876e13775cee063e1ed0', 'PSVA/S2-2__Sadwavirus_alphananas'] as Set
 
             // k-mer-only and mapping-only cases.
-            assert read_tsv(table_file('02_genome_kmer_based_calling', 'kmer_only', 'genome_kmer_based_calls'))*.vpd_assembly == ['set:MF678311']
-            def norovirus = read_tsv(table_file('03_genome_mapping_based_calling', 'mapping_only', 'genome_mapping_based_calls'))
-            assert norovirus*.vpd_assembly == ['GCF_001595675.1']
-            assert norovirus[0].call_level == 'genus' && norovirus[0].vpd_species == '' && norovirus[0].vpd_genus == 'Norovirus'
+            assert sylph_profile('kmer_only').collect(sylph_genome) == ['set_MF678311']
+            assert esviritu_info('mapping_only')*.Assembly == ['GCF_001595675.1']
 
             // preprocessing_read_counts: the reference filter removes every host pair; QC removes the
             // 60 duplicate SARS-CoV-2 pairs and the 100 low-quality background pairs.
@@ -104,12 +108,17 @@ nextflow_pipeline {
             assert esviritu_folder.listFiles().findAll { report_file -> report_file.name.endsWith('.html') } == []
             assert esviritu_folder.listFiles().findAll { report_file -> report_file.isDirectory() } == []
 
-            // The round-3 alignment publishes flat, apart from the rest of the kept files (esviritu_keep).
-            assert new File("${mapping_folder}/esviritu_final_bams/both_callers.third.filt.sorted.bam").isFile()
-            def intermediates_folder = new File("${mapping_folder}/esviritu_intermediates/both_callers")
-            assert intermediates_folder.isDirectory()
-            assert intermediates_folder.listFiles()*.name.contains('both_callers.initial.filt.sorted.bam')
-            assert !intermediates_folder.listFiles()*.name.contains('both_callers.third.filt.sorted.bam')
+            // esviritu_keep defaults to 'final': the round-3 alignment, its index and the reference
+            // set it was mapped against, and nothing from rounds 1-2.
+            assert new File("${mapping_folder}/esviritu_final_bams").listFiles()*.name.sort() ==
+                ['both_callers.third.filt.sorted.bam', 'both_callers.third.filt.sorted.bam.bai',
+                 'both_callers.third.reference.fa', 'mapping_only.third.filt.sorted.bam',
+                 'mapping_only.third.filt.sorted.bam.bai', 'mapping_only.third.reference.fa']
+            assert !new File("${mapping_folder}/esviritu_intermediates").exists()
+
+            // REMV publishes no derived call tables of its own.
+            assert !new File("${mapping_folder}/genome_mapping_based_calls").exists()
+            assert !new File("${outputDir}/02_genome_kmer_based_calling/genome_kmer_based_calls").exists()
 
             // run_metadata.yaml names the tool behind every step.
             def metadata = new org.yaml.snakeyaml.Yaml().load(path("${outputDir}/05_run_summary/rww_20261029_e2e.run_metadata.yaml").text)
@@ -139,7 +148,6 @@ nextflow_pipeline {
                 run_id = 'rww_20261029_skip'
                 skip_reference_filter = true
                 sylph_database = "${references}/vpd.syldb"
-                vpd_lookup = "${references}/vpd_lookup.tsv"
                 esviritu_database = "${references}/esviritu_db"
             }
         }
@@ -182,7 +190,6 @@ nextflow_pipeline {
                 run_id = 'rww_20261029_cram'
                 reference_filter_index = "${references}/host.k31w15.idx"
                 sylph_database = "${references}/vpd.syldb"
-                vpd_lookup = "${references}/vpd_lookup.tsv"
                 esviritu_database = "${references}/esviritu_db"
                 vpd_version = '3.2.4-subset'
             }
