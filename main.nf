@@ -24,6 +24,7 @@ workflow {
     genome_kmer_based_calls = RAPID_WW.out.genome_kmer_based_calls
     genome_mapping_based_calls = RAPID_WW.out.genome_mapping_based_calls
     esviritu_reports = RAPID_WW.out.esviritu_reports
+    esviritu_final_bams = RAPID_WW.out.esviritu_final_bams
     esviritu_intermediates = RAPID_WW.out.esviritu_intermediates
     sample_status = RAPID_WW.out.sample_status
     qc_report = RAPID_WW.out.qc_report
@@ -37,10 +38,12 @@ output {
     preprocessing_logs { path '01_preprocessing/logs' }
     genome_kmer_based_calls { path '02_genome_kmer_based_calling/genome_kmer_based_calls' }
     genome_mapping_based_calls { path '03_genome_mapping_based_calling/genome_mapping_based_calls' }
-    // EsViritu's raw files land in <sample>/esviritu_output/ (the folder EsViritu writes them to).
-    esviritu_reports { path { meta, report_files -> "03_genome_mapping_based_calling/esviritu_reports/${meta.id}" } }
-    // With esviritu_keep on, the temp folder sits beside the raw files: <sample>/esviritu_output/<sample>_temp/.
-    esviritu_intermediates { path { meta, temp_folder -> "03_genome_mapping_based_calling/esviritu_reports/${meta.id}" } }
+    // EsViritu's own tables, consensus, log and params, one folder per sample.
+    esviritu_reports { path { meta, report_files -> "03_genome_mapping_based_calling/esviritu_results/${meta.id}" } }
+    // The round-3 alignments, flat: filenames are already sample-prefixed, so one glob gets them all.
+    esviritu_final_bams { path { meta, bam_files -> '03_genome_mapping_based_calling/esviritu_final_bams' } }
+    // With esviritu_keep on, rounds 1-2 and the clustering tables, one folder per sample.
+    esviritu_intermediates { path { meta, intermediates_folder -> '03_genome_mapping_based_calling/esviritu_intermediates' } }
     qc_report { path '04_qc_report' }
     sample_status { path '05_run_summary/sample_status' }
     run_metadata { path '05_run_summary' }

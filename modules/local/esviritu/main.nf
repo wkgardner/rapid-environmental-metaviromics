@@ -18,9 +18,14 @@ process ESVIRITU {
     tuple val(meta), env('MAPPING_STATUS'), emit: status
     tuple val(meta), path("${meta.id}_esviritu.log"), emit: log, optional: true
     // EsViritu's raw tables, consensus, log and params; not its HTML reports or their JavaScript folder.
-    tuple val(meta), path("esviritu_output/*.{tsv,yaml,log,fasta,json}"), emit: reports, optional: true
-    // EsViritu's temp folder, when esviritu_keep is on.
-    tuple val(meta), path("esviritu_output/${meta.id}_temp"), emit: intermediates, optional: true
+    // Flattened to the task folder by the repackaging step below so they publish without a nested
+    // esviritu_output/ level.
+    tuple val(meta), path("*.{tsv,yaml,log,fasta,json}"), emit: reports, optional: true
+    // The round-3 alignment: the one every downstream read-level question goes back to.
+    tuple val(meta), path("${meta.id}.third.filt.sorted.bam*"), emit: final_bam, optional: true
+    // Everything else EsViritu kept (rounds 1-2 and the clustering tables), when esviritu_keep is on.
+    // Named for the sample alone so it publishes as esviritu_intermediates/<sample>/.
+    tuple val(meta), path("${meta.id}", type: 'dir'), emit: intermediates, optional: true
     path 'versions.yml', topic: versions
 
     script:
@@ -60,6 +65,26 @@ process ESVIRITU {
     else
         MAPPING_STATUS=failed
         echo "EsViritu failed for ${meta.id} (exit \$esviritu_exit_code, no tables)" >&2
+    fi
+
+    # Repackage EsViritu's layout for publishing. EsViritu writes its tables into esviritu_output/
+    # and its working files into esviritu_output/<sample>_temp/. Published outputs want three flat,
+    # self-describing groups instead, so move everything up to the task folder:
+    #   <sample>.*                      tables, consensus, log, params        -> esviritu_results/
+    #   <sample>.third.filt.sorted.bam  the round-3 alignment                 -> esviritu_final_bams/
+    #   <sample>/                       rounds 1-2 and the clustering tables  -> esviritu_intermediates/
+    if [ -d esviritu_output ]; then
+        find esviritu_output -maxdepth 1 -type f -exec mv -f {} . \\;
+
+        esviritu_temp_folder=esviritu_output/${meta.id}_temp
+        if [ -d "\$esviritu_temp_folder" ]; then
+            # The .bai may be absent if EsViritu never indexed; tolerate either.
+            for final_alignment_file in "\$esviritu_temp_folder"/${meta.id}.third.filt.sorted.bam \\
+                                        "\$esviritu_temp_folder"/${meta.id}.third.filt.sorted.bam.bai; do
+                if [ -f "\$final_alignment_file" ]; then mv -f "\$final_alignment_file" .; fi
+            done
+            mv "\$esviritu_temp_folder" ${meta.id}
+        fi
     fi
 
     cat <<-END_VERSIONS > versions.yml
