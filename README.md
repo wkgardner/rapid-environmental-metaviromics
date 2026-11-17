@@ -142,9 +142,23 @@ pixi run test-nf          # modules and the whole pipeline on synthetic data (nf
 pixi run make-test-data   # regenerate the synthetic data
 ```
 
-## Tools
+## Credits and citation
 
-[Deacon](https://github.com/bede/deacon), [BBTools](https://bbmap.org/), [sylph](https://github.com/bluenote-1577/sylph), [EsViritu](https://github.com/cmmr/EsViritu), [MultiQC](https://multiqc.info/), [sra-tools](https://github.com/ncbi/sra-tools), [sracha](https://github.com/rnabioco/sracha-rs) and [Nextflow](https://www.nextflow.io/). Exact versions are pinned in [pixi.toml](pixi.toml). Please cite these tools if you use the pipeline.
+REMV's mapping-based caller **is** [EsViritu](https://github.com/cmmr/EsViritu) (Tisza *et al.*, MIT licensed). EsViritu does the read mapping, the three rounds of reference clustering, the consensus calling and the per-virus tables; REMV publishes that output unchanged and derives no call table of its own. Both of REMV's callers work against EsViritu's Virus Pathogen Database (VPD), so the reference set behind every result here is EsViritu's work as well.
+
+**If you use REMV, cite EsViritu:**
+
+> Tisza MJ, Simar SR, Zorz JK, Javornik Cregeen SJ, Maresso AW. *EsViritu is a sensitive and specific profiler for viral pathogen detection and genome recovery in metagenomes.* <https://doi.org/10.64898/2026.09.29.755457>
+
+**And cite the database version you ran against**, which `05_run_summary/<run_id>.run_metadata.yaml` records as `vpd_version` and `vpd_mask_version`:
+
+> Virus Pathogen Database for EsViritu. Baylor College of Medicine. <https://doi.org/10.5281/zenodo.17716199>
+
+Where the wastewater application is the point, the paper that introduced the method is worth citing too: Tisza MJ *et al.*, *Wastewater sequencing reveals community and variant dynamics of the collective human virome*, Nature Communications 14, 6878 (2023), <https://doi.org/10.1038/s41467-023-42064-1>.
+
+### Other tools
+
+[Deacon](https://github.com/bede/deacon), [BBTools](https://bbmap.org/), [sylph](https://github.com/bluenote-1577/sylph), [MultiQC](https://multiqc.info/), [sra-tools](https://github.com/ncbi/sra-tools), [sracha](https://github.com/rnabioco/sracha-rs) and [Nextflow](https://www.nextflow.io/). Exact versions are pinned in [pixi.toml](pixi.toml). Please cite these tools too if you use the pipeline.
 
 ## License
 
