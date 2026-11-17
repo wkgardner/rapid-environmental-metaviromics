@@ -9,7 +9,13 @@ Every result is a per-sample TSV that is written once and never rewritten, so a 
 
 ![Pipeline diagram](docs/metro_map.svg)
 
-> **Status: 1.0.0dev.** The pipeline runs locally through a pixi environment on `linux-64`. Per-process containers and an OSPool profile are planned but not built yet.
+> ## ⚠️ Status: 1.0.0dev — under rapid development
+>
+> **This pipeline is changing fast and will keep changing fast. Expect breaking changes at short notice.** Params, published output paths, table columns and file names have all changed within a single week and will change again. There is no stability guarantee, no deprecation period and no migration path between revisions.
+>
+> If you depend on REMV's output, pin a commit and keep `05_run_summary/<run_id>.run_metadata.yaml` alongside your results — it records the tool versions, reference versions and every effective param for the run that produced them, which is the only reliable way to know what a given result means after the pipeline has moved on.
+>
+> The pipeline runs locally through a pixi environment on `linux-64`. Per-process containers and an OSPool profile are planned but not built yet.
 
 ## Quick start
 
